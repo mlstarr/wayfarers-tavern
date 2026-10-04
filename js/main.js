@@ -126,12 +126,8 @@ const ctx = {
     if (out.error) { toast(out.error); return; }
     const ups = checkRankUp(state, Date.now());
     commit();
-    openSheet(h('div', { class: 'scene-result' },
-      h('p', { class: 'enc-line' }, out.text),
-      out.notes.map((t) => h('p', { class: 'muted' }, t)),
-      out.quest ? h('p', { class: 'notice' }, `A personal quest is on the board: ${out.quest.title}.`) : null),
-    { title: 'A story continues' });
     if (ups.length) setTimeout(() => showRankUp(ups), 400);
+    return out;
   },
   build(id) {
     const res = buyUpgrade(state, id, Date.now());

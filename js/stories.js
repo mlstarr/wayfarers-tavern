@@ -24,6 +24,29 @@ export function assignArc(state, adv) {
 }
 
 const partLabel = (step) => (step === 0 ? 'Introduction' : `Part ${step} of 3`);
+const NUMERALS = ['', 'I', 'II', 'III'];
+export const CHAPTERS = ['Introduction', 'Chapter I', 'Chapter II', 'Chapter III', 'Personal quest', 'Legacy'];
+const SETTINGS = [
+  'At the bar, as the evening crowd thins.',
+  'By the hearth, after the last song.',
+  'At a corner table, over cold tea and a map.',
+  'In the yard at first light, packs half-filled.',
+];
+
+// Short tags describing what a choice does, for the story view.
+export function choiceHints(c) {
+  const tags = [];
+  if (c.cost) tags.push({ text: `${c.cost} gold`, tone: 'cost' });
+  for (const e of c.effects) {
+    if (e.loyalty) tags.push({ text: `${e.loyalty > 0 ? '+' : ''}${e.loyalty} loyalty`, tone: e.loyalty > 0 ? 'good' : 'bad' });
+    if (e.gold) tags.push({ text: `+${e.gold} gold`, tone: 'good' });
+    if (e.renown) tags.push({ text: `+${e.renown} renown`, tone: 'good' });
+    if (e.xp) tags.push({ text: `+${e.xp} XP`, tone: 'good' });
+    if (e.buff) tags.push({ text: `${e.buff.label}: +${e.buff.mod} for ${e.buff.quests} quest${e.buff.quests > 1 ? 's' : ''}`, tone: 'good' });
+    if (e.supply) tags.push({ text: `+${e.supply.n} ${SUPPLIES[e.supply.id].name.toLowerCase()}`, tone: 'good' });
+  }
+  return tags;
+}
 
 function sceneFor(adv) {
   const arc = ARCS[adv.arc.id];
@@ -38,14 +61,32 @@ export function readyStories(state) {
 
 export function describeStory(adv) {
   const arc = ARCS[adv.arc.id];
-  const scene = sceneFor(adv);
+  const step = Math.min(adv.arc.step, 3);
+  const scene = sceneFor({ ...adv, arc: { ...adv.arc, step } });
   const vars = { name: firstName(adv) };
   return {
     title: arc.title,
-    part: partLabel(adv.arc.step),
+    part: partLabel(step),
+    chapter: CHAPTERS[step],
+    setting: SETTINGS[step],
     text: fill(scene.text, vars),
-    choices: scene.choices.map((c, i) => ({ index: i, label: fill(c.label, vars), cost: c.cost || 0 })),
+    choices: scene.choices.map((c, i) => ({
+      index: i, label: fill(c.label, vars), cost: c.cost || 0, hints: choiceHints(c),
+    })),
   };
+}
+
+// Everything read so far, for the story view: [{ chapter, setting, text, choice, result }].
+export function storyJournal(adv) {
+  return (adv.arc && adv.arc.log) || [];
+}
+
+// Where the hero stands: { chapter index 0-5, waiting text }.
+export function storyProgress(adv) {
+  if (!adv.arc) return null;
+  const s = adv.arc.step;
+  const need = s <= 3 ? Math.max(0, STORY_AT[s] - (adv.stats.quests || 0)) : 0;
+  return { step: s, need, numeral: NUMERALS[s] || '' };
 }
 
 // Next story beat for a hero, for the detail screen.
@@ -93,6 +134,12 @@ export function playStory(state, advId, index, now) {
   const vars = { name: firstName(adv) };
   const out = { text: fill(choice.text, vars), notes: choice.cost ? [`-${choice.cost} gold`] : [], quest: null };
   applyEffects(state, adv, choice.effects, out);
+  const step = adv.arc.step;
+  adv.arc.log = adv.arc.log || [];
+  adv.arc.log.push({
+    step, chapter: CHAPTERS[step], setting: SETTINGS[step],
+    text: fill(scene.text, vars), choice: fill(choice.label, vars), result: out.text, at: now,
+  });
   addHistory(adv, out.text, now);
   adv.arc.step += 1;
   if (adv.arc.step === 4) {
@@ -130,6 +177,7 @@ export function postPersonalQuest(state, adv, now, attempt = 0) {
     tier,
     expedition: false,
     personal: adv.id,
+    arcTitle: arc.title,
     duration,
     party: q.party,
     encounters,
@@ -163,5 +211,7 @@ export function finishPersonalQuest(state, adv, quest, outcome, now) {
   if (adv.goal) adv.goal.forced = true;
   const ending = fill(arc.ending, vars);
   addHistory(adv, ending, now);
+  adv.arc.log = adv.arc.log || [];
+  adv.arc.log.push({ step: 4, chapter: CHAPTERS[4], setting: quest.title, text: ending, choice: null, result: null, at: now });
   return [ending, `${firstName(adv)} earned a legacy: ${arc.legacy.name} (${fill(arc.legacy.desc, vars)}) and the name "${adv.epithet}".`];
 }

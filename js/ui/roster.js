@@ -3,6 +3,7 @@ import { h, section, openSheet, toast } from './dom.js';
 import { adventurerCard, adventurerDetail } from './card.js';
 import { rosterCap } from '../tavern.js';
 import { fullName } from '../adventurers.js';
+import { openStory } from './story.js';
 
 export function renderRoster(ctx) {
   const { state } = ctx;
@@ -39,6 +40,7 @@ export function openDetail(ctx, advId) {
     actions,
     state: ctx.state,
     herbCost: ctx.herbalistCost(),
+    onStory: adv.arc ? () => { close(); openStory(ctx, adv.id); } : null,
     onHeal: (injuryId) => { if (ctx.herbalist(adv.id, injuryId)) { close(); openDetail(ctx, adv.id); } },
     onChooseTalent: (i) => {
       const t = ctx.chooseTalent(adv.id, i);

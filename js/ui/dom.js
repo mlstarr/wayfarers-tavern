@@ -58,9 +58,14 @@ export function toast(msg) {
   setTimeout(() => el.remove(), 3100);
 }
 
+const openSheets = new Set();
+export function closeAllSheets() { for (const c of [...openSheets]) c(); }
+
 // Bottom sheet on phones, centered dialog on desktop. Returns a close function.
 export function openSheet(content, { title, wide = false, onClose } = {}) {
   const close = () => {
+    if (!openSheets.has(close)) return;
+    openSheets.delete(close);
     backdrop.classList.add('out');
     setTimeout(() => backdrop.remove(), 180);
     document.removeEventListener('keydown', onKey);
@@ -75,6 +80,7 @@ export function openSheet(content, { title, wide = false, onClose } = {}) {
   const backdrop = h('div', { class: 'sheet-backdrop', onclick: (e) => { if (e.target === backdrop) close(); } }, sheet);
   document.body.append(backdrop);
   document.addEventListener('keydown', onKey);
+  openSheets.add(close);
   return close;
 }
 

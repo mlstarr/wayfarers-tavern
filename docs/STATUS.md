@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-04 (bar turnover)
+Last updated: 2026-10-04 (loyalty tiers, story book)
 
 ## Built
 **M1 core loop**
@@ -16,7 +16,7 @@ Last updated: 2026-10-04 (bar turnover)
 - **Conditions and supplies** (`data/supplies.js`): quests roll conditions (night, rain, cold, cursed ground, venom, long road, fears fire); supplies counter them. Shop in the Bar tab; packing in the party picker; potions auto-drink and unused ones come home. Picker odds include conditions, bonds and buffs.
 - **Tavern scenes** (`data/scenes.js`, `js/scenes.js`): every 90 min of game time, idle heroes may start a scene with 2 to 3 choices (gold, loyalty, bonds, buffs, XP, d20 checks).
 - **Personal goals** (`data/goals.js`, `js/goals.js`): each hero has one (avenge, earn gold, triumphs, a quest, natural 20s, a friend, a level). Finishing gives +2 to main ability and +2 loyalty, then a new goal. Vengeance dispatches appear when a hero's nemesis is the finale foe.
-- **Loyalty:** 0 to 5 hearts; at 5 the hero is devoted (+1 to every roll).
+- **Loyalty** (`data/loyalty.js`): 0 ready to quit (-1, quits after a failed quest or missed payday), 1 disgruntled (-1), 2-3 content, 4 loyal (+1), 5 devoted (+1 and gets back up once per quest after falling). Triumph +1, disaster -1, plus stories, scenes, dispatches and goals. Explained in the hero detail.
 - **Bonds** (`js/bonds.js`): questing together, triumphs and heals build bonds; friends +1, sworn +2, rivals -1 to rolls when in the same party.
 - **Talents** (`data/talents.js`, `js/talents.js`): every level-up offers a choice of two (one class, one general). Roster tab shows a dot when a choice is waiting.
 
@@ -33,6 +33,8 @@ Last updated: 2026-10-04 (bar turnover)
 - **Penalties** (`data/penalties.js`): heroes who fall get a lasting injury (healed by time or the herbalist); disasters may injure others. Fatigue +1 per quest (+2 expedition): tired -1, exhausted -2, fades with rest. Failure and disaster cost renown by tier. Daily wages at local midnight, at most 2 missed paydays charged; an empty chest costs everyone loyalty and heroes at 0 quit (never while questing). Contracts: deposit up front, 1.8x pay, deposit lost on failure.
 
 **Bar turnover** (save v4): 3 stools; each recruit stays 2 to 4 hours (paced early), then leaves and a new face arrives 15 min later. "Send on" frees a stool for free; "Buy a round" (10 gold + 4 per rank) replaces everyone at once. Constants in config.js (BAR_STAY, BAR_ARRIVE, ROUND_COST).
+
+**Story book** (`js/ui/story.js`): stories show as "X wants a word" invitations on the home screen, only while the hero is at the tavern. Tapping opens the hero's tale: chapter track (Intro, I, II, III, Quest, Legacy), every past chapter with the choice you made and its result, then the current chapter with dialogue styling, a setting line and choice tags showing what each costs or gives. Also reachable from the hero detail ("Read the story"). Choices are logged in `adv.arc.log`.
 
 ## How to test
 - `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, and prints the balance table.

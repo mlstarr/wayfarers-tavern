@@ -77,6 +77,13 @@ export function natLine(ctx, m, r) {
 export function hurt(ctx, m, dmg, lines) {
   const wasUp = m.hp > 0;
   m.hp = Math.max(0, m.hp - dmg);
+  // Devoted heroes get back up once per quest.
+  if (wasUp && m.hp === 0 && A.isDevoted(m.a) && !m.used.rally) {
+    m.used.rally = true;
+    m.hp = 1;
+    lines.push(`${m.name} went down, then got back up. Devotion is stubborn.`);
+    return;
+  }
   if (wasUp && m.hp === 0) lines.push(line(ctx.rng, T.FALL_LINES, actorVars(m.a)));
 }
 

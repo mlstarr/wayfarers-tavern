@@ -263,6 +263,8 @@ export function collectQuest(state, pendingId, now) {
     a.stats.nat20 += nat.n20;
     a.stats.nat1 += nat.n1;
     if (r.loyalty && r.loyalty[id]) changeLoyalty(a, r.loyalty[id]);
+    if (r.outcome === 'triumph') changeLoyalty(a, 1);
+    if (r.outcome === 'disaster') changeLoyalty(a, -1);
     for (const h of (r.history || []).filter((x) => x.id === id)) addHistory(a, h.text, p.endAt);
     for (const u of gainXp(a, r.xp)) {
       levelUps.push({ id, name: fullName(a), level: u.level, hpGain: u.hpGain });
@@ -316,6 +318,15 @@ export function collectQuest(state, pendingId, now) {
   }
   for (const a of advs) progressBond(a, hasFriend(state, a.id));
   if (renownLost) events.push(`Word of the ${r.outcome} spread: -${renownLost} renown.`);
+  if (r.outcome === 'triumph') events.push('A triumph: everyone in the party grew more loyal.');
+  if (!won) {
+    for (const a of advs.filter((x) => (x.loyalty || 0) <= 0)) {
+      state.roster = state.roster.filter((x) => x.id !== a.id);
+      const msg = `${a.name.split(' ')[0]} has had enough and left the company.`;
+      events.push(msg);
+      addLog(state, msg, now);
+    }
+  }
   for (const g of settleGoals(advs, p.endAt)) {
     const msg = `${g.name} fulfilled a personal goal (${g.reward}, loyalty up).`;
     events.push(msg);

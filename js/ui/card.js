@@ -14,6 +14,7 @@ import { bondsOf } from '../bonds.js';
 import { INJURIES } from '../../data/penalties.js';
 import { storyStatus } from '../stories.js';
 import { wageOf } from '../tavern.js';
+import { LOYALTY_TIERS } from '../../data/loyalty.js';
 import * as A from '../adventurers.js';
 
 export function statusOf(adv, now) {
@@ -31,7 +32,9 @@ function hpBar(adv) {
 
 function quirkChips(adv) {
   const tired = A.fatigueLevel(adv);
+  const lt = A.loyaltyTier(adv);
   return h('div', { class: 'chips' },
+    lt.mod < 0 && adv.id && !adv.id.startsWith('r') ? h('span', { class: 'chip injury', title: lt.desc }, lt.label) : null,
     (adv.injuries || []).map((i) => h('span', { class: 'chip injury', title: INJURIES[i.id].desc }, INJURIES[i.id].name)),
     tired ? h('span', { class: 'chip tired', title: `${tired.mod} to every roll until rested` }, tired.label) : null,
     adv.quirks.map((q) => h('span', { class: `chip ${QUIRKS[q].tone}`, title: QUIRKS[q].desc }, QUIRKS[q].name)));
@@ -49,7 +52,8 @@ function statusBadge(adv, now) {
 
 export function hearts(adv) {
   const n = adv.loyalty ?? 0;
-  return h('span', { class: `hearts${n >= MAX_LOYALTY ? ' devoted' : ''}`, title: `Loyalty ${n} of ${MAX_LOYALTY}${n >= MAX_LOYALTY ? ': devoted, +1 to every roll' : ''}` },
+  const t = A.loyaltyTier(adv);
+  return h('span', { class: `hearts ${t.key}`, title: `Loyalty ${n} of ${MAX_LOYALTY}: ${t.label}. ${t.desc}` },
     Array.from({ length: MAX_LOYALTY }, (_, i) => h('i', { class: i < n ? 'on' : '' })));
 }
 
@@ -94,7 +98,7 @@ function talentChoice(adv, onChoose) {
 
 // state: needed for bonds. onChooseTalent(index): level-up choice handler.
 // onHeal(injuryId) and herbCost: the herbalist button for injuries.
-export function adventurerDetail(adv, { now = Date.now(), actions, state, onChooseTalent, onHeal, herbCost } = {}) {
+export function adventurerDetail(adv, { now = Date.now(), actions, state, onChooseTalent, onHeal, herbCost, onStory } = {}) {
   const cls = CLASSES[adv.cls];
   const anc = ANCESTRIES[adv.ancestry];
   const bg = BACKGROUNDS.find((b) => b.id === adv.background);
@@ -116,14 +120,15 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
         h('p', { class: 'lead' }, `${bg.name}. ${bg.line}`),
         story ? h('div', { class: 'goal story' },
           h('span', { class: 'muted small' }, 'Story'),
-          h('p', null, h('b', null, `${story.title}. `), story.text)) : null,
+          h('p', null, h('b', null, `${story.title}. `), story.text),
+          onStory ? h('button', { class: 'btn small', onclick: onStory }, 'Read the story') : null) : null,
         goal ? h('div', { class: 'goal' },
           h('span', { class: 'muted small' }, 'Personal goal'),
           h('p', null, goalText(goal)),
           gp.need > 1 ? h('div', { class: 'goalbar' }, h('i', { style: `width:${Math.round((gp.have / gp.need) * 100)}%` })) : null,
           h('span', { class: 'muted small' }, gp.need > 1 ? `${gp.have} of ${gp.need}` : gp.have ? 'Done' : 'Not yet')) : null,
         h('div', { class: 'facts' },
-          fact('Loyalty', hearts(adv)),
+          fact('Loyalty', h('span', { class: 'loyalty-fact' }, hearts(adv), ` ${A.loyaltyTier(adv).label}`)),
           fact('Armor class', A.armorClass(adv)),
           fact('Attack', `${sign(A.attackBonus(adv))} · ${A.damageDice(adv)}`),
           fact('Level', next ? `${adv.level} (${adv.xp}/${next} XP)` : `${adv.level} (max)`),
@@ -137,6 +142,11 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
       h('ul', { class: 'traits' }, adv.injuries.map((i) => h('li', { class: 'bad' },
         h('b', null, `${INJURIES[i.id].name}. `), INJURIES[i.id].desc, ' Heals in ', countdown(i.healAt, 'moments'), '. ',
         onHeal ? h('button', { class: 'btn small', onclick: () => onHeal(i.id) }, `Herbalist: ${herbCost} gold`) : null)))] : null,
+    h('h3', null, 'Loyalty'),
+    h('ul', { class: 'loyalty-ladder' }, LOYALTY_TIERS.map((t) => h('li', {
+      class: t.key === A.loyaltyTier(adv).key ? 'now' : '',
+    }, h('b', null, t.key === 'content' ? '2-3' : String(t.min)), h('span', null, h('b', null, `${t.label}. `), t.desc)))),
+    h('p', { class: 'muted small' }, 'Loyalty rises with triumphs, kept promises in stories, kind choices in the common room and fulfilled goals. It falls with disasters, unpaid wages and broken trust.'),
     h('h3', null, 'Ability scores'),
     h('div', { class: 'abilities' }, ABILITIES.map((ab) =>
       h('div', { class: 'ability', title: ABILITY_NAMES[ab] },

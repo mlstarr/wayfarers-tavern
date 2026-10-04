@@ -7,6 +7,7 @@ import { QUIRKS, QUIRK_IDS } from '../data/quirks.js';
 import { TALENTS } from '../data/talents.js';
 import { INJURIES, INJURY_IDS, FATIGUE_MIN, FATIGUE_LEVELS } from '../data/penalties.js';
 import { ARCS } from '../data/arcs.js';
+import { LOYALTY_TIERS } from '../data/loyalty.js';
 import { ABILITIES, SKILLS } from '../data/skills.js';
 import { MIN, REST_FRACTION, REST_MIN, START_LOYALTY, MAX_LOYALTY } from './config.js';
 import { offerTalents } from './talents.js';
@@ -202,6 +203,10 @@ export function changeLoyalty(adv, n) {
 }
 
 export const isDevoted = (adv) => (adv.loyalty || 0) >= MAX_LOYALTY;
+export function loyaltyTier(adv) {
+  const n = adv.loyalty ?? START_LOYALTY;
+  return LOYALTY_TIERS.find((t) => n >= t.min);
+}
 export const isRested = (adv) => adv.hp >= Math.ceil(adv.maxHp / 2);
 export const isAvailable = (adv) => adv.status === 'idle' && isRested(adv);
 
