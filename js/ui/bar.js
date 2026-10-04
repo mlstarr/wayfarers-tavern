@@ -47,15 +47,30 @@ export function renderBar(ctx) {
     root.append(h('p', { class: 'muted' }, 'The bar is quiet for now.'));
   }
 
+  const targets = (state.settings.restock) || {};
+  const autoOn = state.settings.autoRestock !== false;
   root.append(section('The quartermaster', 'Supplies for the road',
-    h('div', { class: 'market' }, Object.entries(SUPPLIES).map(([id, s]) => h('div', { class: 'market-row' },
-      h('div', { class: 'market-text' },
-        h('b', null, s.name, h('span', { class: 'muted small' }, ` · you have ${state.supplies[id] || 0}`)),
-        h('span', { class: 'muted small' }, s.desc)),
-      h('button', {
-        class: 'btn small',
-        disabled: state.gold < s.cost ? true : null,
-        onclick: () => ctx.buy(id),
-      }, h('span', { html: icon('coin') }), `${s.cost}`))))));
+    h('p', { class: 'muted small restock-note' }, autoOn
+      ? 'Set "keep" to have the quartermaster restock an item after it is used. Restocking never dips into the next payday\'s wages.'
+      : 'Auto-restock is off. Turn it on in Settings.'),
+    h('div', { class: 'market' }, Object.entries(SUPPLIES).map(([id, s]) => {
+      const keep = targets[id] || 0;
+      return h('div', { class: 'market-row' },
+        h('div', { class: 'market-text' },
+          h('b', null, s.name, h('span', { class: 'muted small' }, ` · you have ${state.supplies[id] || 0}`)),
+          h('span', { class: 'muted small' }, s.desc),
+          h('div', { class: 'keep', role: 'group', 'aria-label': `Keep ${s.name} stocked` },
+            h('span', { class: 'muted small' }, 'Keep:'),
+            [0, 1, 2, 3].map((n) => h('button', {
+              class: `keep-btn${keep === n ? ' on' : ''}`,
+              'aria-pressed': keep === n ? 'true' : 'false',
+              onclick: () => ctx.setRestock(id, n),
+            }, n === 0 ? 'Off' : String(n))))),
+        h('button', {
+          class: 'btn small',
+          disabled: state.gold < s.cost ? true : null,
+          onclick: () => ctx.buy(id),
+        }, h('span', { html: icon('coin') }), `${s.cost}`));
+    }))));
   return root;
 }

@@ -1,7 +1,7 @@
 // Smoke test and balance check for the logic layer. Run: node tools/smoke.mjs
 import { newGame, importSave, exportSave } from '../js/state.js';
 import { Rng } from '../js/rng.js';
-import { startingParty, refreshBar, hire, buySupply, buyRound, sendAway } from '../js/inn.js';
+import { startingParty, refreshBar, hire, buySupply, buyRound, sendAway, autoRestock, setRestockTarget } from '../js/inn.js';
 import { refreshBoard, sendParty, collectQuest, generateQuest, recommendedSupplies } from '../js/quests.js';
 import { resolveQuest } from '../js/resolve.js';
 import { generateAdventurer, applyRest, isAvailable } from '../js/adventurers.js';
@@ -145,6 +145,19 @@ console.log(`      quest lengths sent, in minutes: ${firstLengths.slice(0, 24).j
   const res = buyRound(s3, t0);
   check(res.ok && s3.gold === gold - res.cost && s3.bar.recruits.length === 3, 'buying a round brings three new faces');
   check(sendAway(s3, s3.bar.recruits[0].id, t0) && s3.bar.recruits.length === 2 && s3.bar.arrivals.length === 1, 'sending a recruit on frees a stool');
+}
+
+// 1d. Auto-restock
+{
+  const s4 = newGame(777, 0);
+  s4.supplies = { torches: 0 };
+  s4.gold = 30;
+  setRestockTarget(s4, 'torches', 3);
+  setRestockTarget(s4, 'potion', 2);
+  const b = autoRestock(s4, 10);
+  check(s4.supplies.torches === 3 && s4.gold >= 10 && (s4.supplies.potion || 0) <= 1, `restock fills targets and keeps the wage reserve (${JSON.stringify(b)}, gold ${s4.gold})`);
+  s4.settings.autoRestock = false; s4.supplies.torches = 0;
+  check(!Object.keys(autoRestock(s4, 0)).length, 'restock can be switched off');
 }
 
 // 2. Save round trip

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-04 (loyalty tiers, story book)
+Last updated: 2026-10-04 (auto-restock)
 
 ## Built
 **M1 core loop**
@@ -35,6 +35,8 @@ Last updated: 2026-10-04 (loyalty tiers, story book)
 **Bar turnover** (save v4): 3 stools; each recruit stays 2 to 4 hours (paced early), then leaves and a new face arrives 15 min later. "Send on" frees a stool for free; "Buy a round" (10 gold + 4 per rank) replaces everyone at once. Constants in config.js (BAR_STAY, BAR_ARRIVE, ROUND_COST).
 
 **Story book** (`js/ui/story.js`): stories show as "X wants a word" invitations on the home screen, only while the hero is at the tavern. Tapping opens the hero's tale: chapter track (Intro, I, II, III, Quest, Legacy), every past chapter with the choice you made and its result, then the current chapter with dialogue styling, a setting line and choice tags showing what each costs or gives. Also reachable from the hero detail ("Read the story"). Choices are logged in `adv.arc.log`.
+
+**Auto-restock** (`autoRestock` in js/inn.js): each supply has a "keep" level (off, 1 to 3) in the quartermaster; after supplies are used the quartermaster buys back up to it, never spending below the next payday's wages. Master toggle in Settings (`state.settings.autoRestock`, on by default; targets in `state.settings.restock`).
 
 ## How to test
 - `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, and prints the balance table.

@@ -131,3 +131,30 @@ export function buySupply(state, id, now) {
   state.supplies[id] = (state.supplies[id] || 0) + 1;
   return { ok: true, supply: s, count: state.supplies[id], at: now };
 }
+
+// Auto-restock: keeps each supply topped up to the player's chosen level after use.
+// Never spends gold needed for the next payday. Returns { id: count bought }.
+export function restockTargets(state) {
+  state.settings.restock = state.settings.restock || {};
+  return state.settings.restock;
+}
+
+export function setRestockTarget(state, id, n) {
+  const t = restockTargets(state);
+  if (n > 0) t[id] = n; else delete t[id];
+}
+
+export function autoRestock(state, reserve = 0) {
+  if (state.settings.autoRestock === false) return {};
+  const bought = {};
+  for (const [id, target] of Object.entries(restockTargets(state))) {
+    const s = SUPPLIES[id];
+    if (!s) continue;
+    while ((state.supplies[id] || 0) < target && state.gold - s.cost >= reserve) {
+      state.gold -= s.cost;
+      state.supplies[id] = (state.supplies[id] || 0) + 1;
+      bought[id] = (bought[id] || 0) + 1;
+    }
+  }
+  return bought;
+}

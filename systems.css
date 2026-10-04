@@ -223,3 +223,11 @@
 .chapter.legacy { background: linear-gradient(160deg, #3a2a12, #2a1d0c); color: var(--text); border: 1px solid #a0722f; background-image: none; }
 .chapter.legacy .chapter-name { color: var(--goldc); }
 .chapter.legacy .story-result { color: var(--parch2); }
+
+/* Auto-restock */
+.keep { display: flex; align-items: center; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+.keep-btn { appearance: none; cursor: pointer; min-width: 34px; min-height: 30px; padding: 2px 8px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--text2); font: inherit; font-size: 13px; font-weight: 700; }
+.keep-btn.on { background: var(--goldc); border-color: var(--goldc); color: #3a2a12; }
+.restock-note { margin: -4px 0 10px; }
+.toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 0; }
+.toggle input { width: 20px; height: 20px; accent-color: var(--ember); }

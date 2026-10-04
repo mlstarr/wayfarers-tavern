@@ -40,6 +40,16 @@ export function openSettings(ctx) {
       },
     }, 'Load save code'),
 
+    h('h3', null, 'Supplies'),
+    h('label', { class: 'toggle' },
+      h('input', {
+        type: 'checkbox',
+        checked: ctx.state.settings.autoRestock !== false ? true : null,
+        onchange: (e) => ctx.toggleAutoRestock(e.target.checked),
+      }),
+      h('span', null, 'Auto-restock supplies after they are used')),
+    h('p', { class: 'muted small' }, 'Choose how many of each item to keep in the Bar tab, under the quartermaster. The quartermaster never spends gold needed for the next payday.'),
+
     h('h3', null, 'Start over'),
     h('p', { class: 'muted' }, 'Begins a new tavern with new adventurers. Your current game is lost unless you back it up first.'),
     h('button', {

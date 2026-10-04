@@ -2,7 +2,9 @@
 import { newGame, load, save, importSave, addLog } from './state.js';
 import { newSeed } from './rng.js';
 import { refreshBoard, sendParty, collectQuest, isReturned } from './quests.js';
-import { refreshBar, hire, dismiss, startingParty, buySupply, buyRound, sendAway } from './inn.js';
+import { refreshBar, hire, dismiss, startingParty, buySupply, buyRound, sendAway, autoRestock, setRestockTarget } from './inn.js';
+import { SUPPLIES } from '../data/supplies.js';
+import { wagesDue } from './tavern.js';
 import { applyRest, applyRecovery, fullName, setRecoveryPace } from './adventurers.js';
 import { tavernMods, collectAle, processPaydays, checkRankUp, buyUpgrade } from './tavern.js';
 import { assignArc, playStory } from './stories.js';
@@ -68,6 +70,7 @@ function maintenance() {
   if (paid.length) { changed = true; for (const e of paid) toast(e); }
   changed = refreshBar(state, now) || changed;
   changed = refreshScenes(state, now, pace.scale) || changed;
+  changed = restock() || changed;
   for (const a of state.roster) {
     changed = applyRest(a, now) || changed;
     changed = applyRecovery(a, now) || changed;
@@ -80,7 +83,16 @@ function maintenance() {
   return changed;
 }
 
-function commit() { save(state); lastAlerts = JSON.stringify(alerts()); render(); }
+// Tops up supplies after use, keeping the next payday's wages in the chest.
+function restock() {
+  const bought = autoRestock(state, wagesDue(state));
+  const parts = Object.entries(bought).map(([id, n]) => `${n} ${SUPPLIES[id].name.toLowerCase()}`);
+  if (parts.length) toast(`Quartermaster restocked: ${parts.join(', ')}.`);
+  return parts.length > 0;
+}
+
+function commit() {
+  restock(); save(state); lastAlerts = JSON.stringify(alerts()); render(); }
 
 const ctx = {
   get state() { return state; },
@@ -161,6 +173,8 @@ const ctx = {
   sendAway(id) {
     if (sendAway(state, id, Date.now())) { toast('They finish their drink and head for the door.'); commit(); }
   },
+  setRestock(id, n) { setRestockTarget(state, id, n); commit(); },
+  toggleAutoRestock(on) { state.settings.autoRestock = on; commit(); },
   buy(id) {
     const res = buySupply(state, id, Date.now());
     if (res.ok) { toast(`Bought ${res.supply.name.toLowerCase()}. You have ${res.count}.`); commit(); } else toast(res.reason);
