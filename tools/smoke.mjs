@@ -1,7 +1,7 @@
 // Smoke test and balance check for the logic layer. Run: node tools/smoke.mjs
 import { newGame, importSave, exportSave } from '../js/state.js';
 import { Rng } from '../js/rng.js';
-import { startingParty, refreshBar, hire, buySupply, buyRound, sendAway, autoRestock, setRestockTarget } from '../js/inn.js';
+import { recruitOdds, startingParty, refreshBar, hire, buySupply, buyRound, sendAway, autoRestock, setRestockTarget } from '../js/inn.js';
 import { refreshBoard, sendParty, collectQuest, generateQuest, recommendedSupplies } from '../js/quests.js';
 import { resolveQuest } from '../js/resolve.js';
 import { generateAdventurer, applyRest, isAvailable } from '../js/adventurers.js';
@@ -255,6 +255,10 @@ for (let i = 0; i < 300; i++) {
   minPool = Math.min(minPool, TALENT_IDS.filter((id) => eligible(a, id, {})).length);
   check(a.path && a.talents.includes(`${a.path}3`), 'level 10 hero has all three path features');
   builds.add([...a.talents].sort().join());
+}
+for (let rank = 0; rank < 5; rank++) {
+  const odds = recruitOdds({ ...state, tavern: { ...state.tavern, rank } });
+  check(Math.abs(odds.reduce((a, b) => a + b, 0) - 100) < 0.01 && odds[4] <= 2.5 && odds[3] <= 8, `rank ${rank} recruit odds stay rare`);
 }
 console.log(`talents: ${TALENT_IDS.length} in all, ${builds.size} distinct builds from 300 level-10 heroes, smallest remaining pool ${minPool}`);
 check(builds.size >= 295, 'level-10 builds are nearly all unique');

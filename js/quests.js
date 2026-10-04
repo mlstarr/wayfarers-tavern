@@ -25,6 +25,14 @@ import { returnGear } from './gear.js';
 import { finishPersonalQuest } from './stories.js';
 import { CONTRACT, RENOWN_LOSS } from '../data/penalties.js';
 
+// Veterans learn little from easy work: past level 4 an easy job gives 35% XP, past 7 a
+// risky one does. Expeditions count as one tier harder.
+export const XP_LEVEL_CAP = { 1: 4, 2: 7, 3: 99 };
+export function xpFactor(level, quest) {
+  const tier = Math.min(3, quest.tier + (quest.expedition ? 1 : 0));
+  return level > XP_LEVEL_CAP[tier] ? 0.35 : 1;
+}
+
 export function unlockedTiers(state) {
   return [1, 2, 3].filter((t) => t <= maxTier(state));
 }
@@ -251,6 +259,7 @@ export function collectQuest(state, pendingId, now) {
   if (!p || !isReturned(p, now)) return null;
   const r = resultFor(p);
   const levelUps = [];
+  const lowXp = [];
   const events = [];
   const partyInfo = [];
   const advs = p.party.map((id) => state.roster.find((x) => x.id === id)).filter(Boolean);
@@ -274,8 +283,10 @@ export function collectQuest(state, pendingId, now) {
     recordDeeds(a, r, p.quest);
     const bonds = bondsOf(state, id);
     const extra = { friends: bonds.filter((b) => b.level.mod > 0).length, rivals: bonds.filter((b) => b.level.mod < 0).length };
-    for (const u of gainXp(a, Math.round(r.xp * (1 + sumTrait(a, 'xpSelf'))), extra)) {
-      levelUps.push({ id, name: fullName(a), level: u.level, hpGain: u.hpGain, path: u.path });
+    const learn = xpFactor(a.level, p.quest);
+    if (learn < 1) lowXp.push(fullName(a).split(' ')[0]);
+    for (const u of gainXp(a, Math.round(r.xp * learn * (1 + sumTrait(a, 'xpSelf'))), extra)) {
+      levelUps.push({ id, name: fullName(a), level: u.level, hpGain: u.hpGain, path: u.path, growth: u.growth });
       addHistory(a, `Reached level ${u.level}.`, p.endAt);
     }
     if (r.defeated) progressAfterQuest(a, r, p.quest, (r.goalBoost || {})[id] || 0);
@@ -362,6 +373,7 @@ export function collectQuest(state, pendingId, now) {
     party: partyInfo,
     result: r,
     levelUps,
+    lowXp,
     events,
     injuries,
     renownLost,

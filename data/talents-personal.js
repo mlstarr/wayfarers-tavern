@@ -101,9 +101,27 @@ const DEED = {
   driven: { earn: { goals: 2 }, name: 'Driven', xpSelf: 0.15, rollMod: 1 },
 };
 
+// Heroic talents: the best there is. They need a high level AND a hard-won record, so
+// most heroes will retire without one. Rarer heroes are offered them a little more often.
+const HEROIC = {
+  legendaryResolve: { minLevel: 8, earn: { deadly: 5 }, name: 'Legendary resolve', rollMod: 1, finale: 2 },
+  baneOfBarrows: { minLevel: 8, earn: { kills: { undead: 10 } }, name: 'Bane of the barrows', aura: { adv: ['undead'] }, dmgVs: { undead: 5 } },
+  lordOfBeasts: { minLevel: 8, earn: { kills: { beast: 15 } }, name: 'Lord of beasts', aura: { adv: ['beast'] }, atkVs: { beast: 2 } },
+  whirlwind: { minLevel: 9, earn: { finales: 8 }, name: 'Whirlwind', swings: 1, line: 'Three foes, one breath, no foes.' },
+  heroicPresence: { minLevel: 8, earn: { triumphs: 12 }, name: 'Heroic presence', aura: { roll: 1, finale: 1 } },
+  unconquerable: { minLevel: 8, earn: { falls: 4, deadly: 3 }, name: 'Unconquerable', resist: 3, hp: 10 },
+  masterOfRoads: { minLevel: 8, earn: { expeditions: 5 }, name: 'Master of the long road', aura: { heal: 2, hazard: 2 }, fatigueResist: 2 },
+  saintOfTheRoad: { minLevel: 8, earn: { saved: 12 }, name: 'Saint of the road', perkUses: 1, healBonus: 6 },
+  fatesFavorite: { minLevel: 9, earn: { nat20: 10 }, name: 'Fate\'s favorite', crit: 2 },
+  livingLegendDeed: { minLevel: 9, earn: { quests: 40 }, name: 'A legend in their own time', aura: { xp: 0.15, gold: 0.15 }, rollMod: 1 },
+  dreadReputation: { minLevel: 9, earn: { deadly: 8 }, name: 'Dread reputation', aura: { foeAtk: -1, foeAc: -1 }, line: 'Monsters have heard the name. It shows.' },
+  peerless: { minLevel: 10, earn: { deadly: 10, finales: 10 }, name: 'Peerless', attackMod: 2, dmg: 3, ac: 2 },
+};
+
+for (const t of Object.values(HEROIC)) t.src = 'heroic';
 for (const t of Object.values(BACKGROUND)) t.src = 'background';
 for (const t of Object.values(ANCESTRY)) t.src = 'ancestry';
 for (const t of Object.values(QUIRK)) t.src = 'quirk';
 for (const t of Object.values(DEED)) t.src = 'deed';
 
-export const PERSONAL_TALENTS = { ...BACKGROUND, ...ANCESTRY, ...QUIRK, ...DEED };
+export const PERSONAL_TALENTS = { ...BACKGROUND, ...ANCESTRY, ...QUIRK, ...DEED, ...HEROIC };

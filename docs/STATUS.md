@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-04 (paths and personal talents)
+Last updated: 2026-10-04 (rarity, recruit odds, heroic talents)
 
 ## Built
 **M1 core loop**
@@ -54,6 +54,12 @@ Last updated: 2026-10-04 (paths and personal talents)
 - **Quirk growth**: flaws can be overcome (Faced the dark removes Afraid of the dark) or sometimes embraced (Drunken master), from level 4.
 - **New effect fields** (listed in `js/talent-text.js`, which writes every description from the data): dmg, dmgVs, atkVs, crit, resist, hazardResist, lifesteal, bloodied, finale, firstStrike, perkUses, healBonus, inspireBonus, sneak, companion, taunt, retaliate, fearless, exposed, fatigue and fatigueResist, rest, wage, xpSelf, and party-wide `aura` effects (`js/auras.js`). Specials: unbroken, reliable, jack, layOnHands. Pseudo-tags 'attack', 'finale' and skill names work in adv lists.
 - Combat moved to `js/combat.js` (fieldMonster, companions, taunt, ambush, retaliation).
+
+**Rarity and the climb to the top**
+- **Recruit odds by rank** (`RANKS[].recruits` in data/tavern.js, `recruitOdds` in js/inn.js): from 72/23/4.5/0.5/0% at a roadside alehouse to 42/34/17/5.6/1.4% at the Hall of legends. Prestige lifts rare and above by 6% per recruit-boost point. The bar shows the current odds.
+- **Rarity keeps mattering:** ability growth at levels 4 and 8 (1, 1, 2, 2, 3 points by rarity, into the class's key abilities); epic and legendary heroes see four talent options instead of three; rare talents and heroic talents are offered more often to rarer heroes. Measured at level 6 on deadly jobs: common 72%, rare 78%, legendary 84% success or better.
+- **High levels take real work:** XP table is now 100 / 250 / 450 / 700 / 1050 / 1550 / 2250 / 3200 / 4500. Heroes above level 4 get 35% XP from easy jobs, above 7 from risky ones (`xpFactor` in quests.js; expeditions count one tier harder). The report says when this happened.
+- **Heroic talents** (12, `src: 'heroic'`): need level 8 to 10 and a hard record, such as 5 deadly wins, 10 undead defeated or 8 final battles. New deed counter: `deadly` (won tier 3 jobs). New effect field: `swings` (extra attacks).
 
 ## How to test
 - `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, validates every talent, checks that 300 level-10 heroes all have different builds, and prints the balance table (rows marked +T level heroes with real paths and talents).

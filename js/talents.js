@@ -9,9 +9,11 @@ import { ANCESTRIES } from '../data/ancestries.js';
 import { Rng, seedFrom } from './rng.js';
 import { deedMet } from './deeds.js';
 
-const OFFER_SIZE = 3;
-const WEIGHT = { deed: 14, quirk: 9, background: 8, ancestry: 6, class: 3, general: 1, rare: 0.3 };
-const PERSONAL = ['deed', 'quirk', 'background', 'ancestry'];
+// Choices per level-up by rarity: epic and legendary heroes see one more option.
+const OFFER_SIZE = { common: 3, uncommon: 3, rare: 3, epic: 4, legendary: 4 };
+const HEROIC_RARITY = { common: 0.6, uncommon: 0.8, rare: 1, epic: 1.3, legendary: 1.6 };
+const WEIGHT = { heroic: 16, deed: 14, quirk: 9, background: 8, ancestry: 6, class: 3, general: 1, rare: 0.3 };
+const PERSONAL = ['heroic', 'deed', 'quirk', 'background', 'ancestry'];
 const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 
 function learned(adv, pred) {
@@ -44,6 +46,7 @@ function weightOf(adv, id) {
   const t = TALENTS[id];
   let w = WEIGHT[t.src] || 1;
   if (t.src === 'rare') w *= 1 + RARITY_ORDER.indexOf(adv.rarity);
+  if (t.src === 'heroic') w *= HEROIC_RARITY[adv.rarity] || 1;
   if (t.requires) w = Math.max(w, 4);
   if ((adv.offered || []).includes(id)) w *= 0.3;
   return w;
@@ -68,7 +71,7 @@ export function offerTalents(adv, extra) {
     offer.push(id);
     pool.splice(pool.findIndex((e) => e[0] === id), 1);
   }
-  while (offer.length < OFFER_SIZE && pool.length) {
+  while (offer.length < (OFFER_SIZE[adv.rarity] || 3) && pool.length) {
     const id = rng.weighted(pool);
     offer.push(id);
     pool.splice(pool.findIndex((e) => e[0] === id), 1);

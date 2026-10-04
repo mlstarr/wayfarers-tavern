@@ -20,6 +20,7 @@ export function sourceLabel(t) {
     case 'ancestry': return ANCESTRIES[t.ancestry].name;
     case 'quirk': return `${t.replaces ? 'Overcomes' : 'Grows from'}: ${QUIRKS[t.quirk].name.toLowerCase()}`;
     case 'deed': return `Earned: ${deedText(t.earn)}`;
+    case 'heroic': return `Heroic · ${deedText(t.earn)}`;
     case 'rare': return 'Rare';
     default: return t.requires ? `Builds on ${TALENTS[t.requires].name.toLowerCase()}` : 'Open to anyone';
   }
@@ -74,9 +75,9 @@ export function talentItems(adv) {
 }
 
 // Deed talents this hero is closest to earning (not learned yet). extra: { friends, rivals }.
-export function deedsInReach(adv, extra, max = 3) {
+export function deedsInReach(adv, extra, max = 4) {
   return TALENT_IDS
-    .filter((id) => TALENTS[id].src === 'deed' && !(adv.talents || []).includes(id))
+    .filter((id) => ['deed', 'heroic'].includes(TALENTS[id].src) && !(adv.talents || []).includes(id))
     .map((id) => {
       const prog = deedProgress(adv, TALENTS[id].earn, extra);
       const frac = prog.reduce((s, p) => s + Math.min(1, p.have / p.need), 0) / prog.length;
@@ -85,7 +86,13 @@ export function deedsInReach(adv, extra, max = 3) {
     .filter((x) => x.frac > 0)
     .sort((a, b) => b.frac - a.frac)
     .slice(0, max)
-    .map(({ id, prog, frac }) => h('li', { class: 'deed' },
-      h('b', null, `${TALENTS[id].name}. `),
-      h('span', { class: 'muted' }, frac >= 1 ? 'Earned, offered at a coming level-up.' : `${cap(deedText(TALENTS[id].earn))} (${prog.map((p) => `${Math.min(p.have, p.need)}/${p.need}`).join(', ')}).`)));
+    .map(({ id, prog, frac }) => {
+      const t = TALENTS[id];
+      const lvl = t.minLevel && adv.level < t.minLevel ? ` Needs level ${t.minLevel}.` : '';
+      return h('li', { class: `deed src-${t.src}` },
+        h('b', null, `${t.src === 'heroic' ? 'Heroic: ' : ''}${t.name}. `),
+        h('span', { class: 'muted' }, frac >= 1
+          ? (lvl ? `Deeds done.${lvl}` : 'Earned, offered at a coming level-up.')
+          : `${cap(deedText(t.earn))} (${prog.map((p) => `${Math.min(p.have, p.need)}/${p.need}`).join(', ')}).${lvl}`));
+    });
 }

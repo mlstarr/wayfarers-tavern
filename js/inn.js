@@ -8,10 +8,22 @@ import { generateAdventurer, addHistory, fullName } from './adventurers.js';
 import { nextId, addLog } from './state.js';
 import { SUPPLIES } from '../data/supplies.js';
 import { recordRecruit, recruitBoost } from './collection.js';
+import { RANKS } from '../data/tavern.js';
 import { returnGear } from './gear.js';
 
 export const HIRE_COST = { common: 20, uncommon: 45, rare: 90, epic: 180, legendary: 350 };
 export const hireCost = (adv) => (adv.legendId ? 0 : HIRE_COST[adv.rarity]);
+
+// Rarity odds at the bar (percent): set by tavern rank, nudged up by prestige (+6% per
+// point of recruit boost to rare and above, which stay rare).
+export function recruitOdds(state) {
+  const base = RANKS[state.tavern.rank].recruits;
+  const lift = 1 + 0.06 * recruitBoost(state);
+  const odds = base.map((w, i) => (i >= 2 ? w * lift : w));
+  const extra = odds.reduce((s, w) => s + w, 0) - 100;
+  odds[0] = Math.max(0, odds[0] - extra);
+  return odds;
+}
 
 // Early-game pacing applies at the bar too, so the first recruits turn over quickly.
 const paceMin = (state) => MIN * Math.max(0.25, paceOf(state).scale);
@@ -20,7 +32,7 @@ function arrive(state, now) {
   const b = state.bar;
   const n = b.counter++;
   const rng = new Rng(seedFrom(state.seed, 'recruit', n));
-  const adv = generateAdventurer(rng.fork('adv'), { boost: recruitBoost(state) });
+  const adv = generateAdventurer(rng.fork('adv'), { weights: recruitOdds(state) });
   adv.id = `r${n}`;
   adv.arrivedAt = now;
   adv.leavesAt = now + rng.int(BAR_STAY[0], BAR_STAY[1]) * paceMin(state);

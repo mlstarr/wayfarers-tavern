@@ -1,11 +1,12 @@
 // Tavern ranks, earned with renown. Renown lost to failure never drops below the current rank.
 // beds: roster size before the bunkhouse. tier: hardest quest tier on the board. reward: gold on reaching it.
+// recruits: rarity odds at the bar in percent (common, uncommon, rare, epic, legendary).
 export const RANKS = [
-  { renown: 0, name: 'Roadside alehouse', beds: 4, tier: 1, reward: 0 },
-  { renown: 15, name: 'Village inn', beds: 5, tier: 2, reward: 60 },
-  { renown: 45, name: 'Crossroads tavern', beds: 6, tier: 3, reward: 150 },
-  { renown: 100, name: 'Famed lodge', beds: 7, tier: 3, reward: 300 },
-  { renown: 200, name: 'Hall of legends', beds: 8, tier: 3, reward: 600 },
+  { renown: 0, name: 'Roadside alehouse', beds: 4, tier: 1, reward: 0, recruits: [72, 23, 4.5, 0.5, 0] },
+  { renown: 15, name: 'Village inn', beds: 5, tier: 2, reward: 60, recruits: [63, 28, 7.5, 1.4, 0.1] },
+  { renown: 45, name: 'Crossroads tavern', beds: 6, tier: 3, reward: 150, recruits: [55, 31, 11, 2.6, 0.4] },
+  { renown: 100, name: 'Famed lodge', beds: 7, tier: 3, reward: 300, recruits: [48, 33, 14, 4.2, 0.8] },
+  { renown: 200, name: 'Hall of legends', beds: 8, tier: 3, reward: 600, recruits: [42, 34, 17, 5.6, 1.4] },
 ];
 
 // Rooms. Each level lists its full effect (not added to the level before). rank: rank index required.

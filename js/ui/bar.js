@@ -2,8 +2,20 @@
 import { h, section, countdown } from './dom.js';
 import { icon } from './icons.js';
 import { adventurerCard } from './card.js';
-import { hireCost, hireProblem, nextArrivalAt, roundCost } from '../inn.js';
+import { hireCost, hireProblem, nextArrivalAt, roundCost, recruitOdds } from '../inn.js';
+import { RANKS } from '../../data/tavern.js';
 import { SUPPLIES } from '../../data/supplies.js';
+
+const RARITY_NAMES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+const fmtPct = (n) => (n >= 10 ? `${Math.round(n)}%` : n >= 1 ? `${n.toFixed(1).replace(/\.0$/, '')}%` : n > 0 ? `${n.toFixed(1)}%` : 'not yet');
+
+// Who a tavern of this standing attracts. Rank sets the odds; prestige nudges them.
+function oddsLine(state) {
+  const odds = recruitOdds(state);
+  return h('p', { class: 'odds small' },
+    h('span', { class: 'muted' }, `A ${RANKS[state.tavern.rank].name.toLowerCase()} draws: `),
+    RARITY_NAMES.map((r, i) => h('span', { class: `odd r-${r}` }, `${r} ${fmtPct(odds[i])}`)));
+}
 
 export function renderBar(ctx) {
   const { state } = ctx;
@@ -14,6 +26,7 @@ export function renderBar(ctx) {
   root.append(section('At the bar', null,
     h('div', { class: 'bar-head' },
       h('p', { class: 'muted' }, 'Wanderers looking for work. Each waits a few hours before moving on, and someone new takes the stool.'),
+      oddsLine(state),
       h('button', {
         class: 'btn small',
         disabled: state.gold < cost ? true : null,

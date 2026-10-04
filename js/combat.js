@@ -140,7 +140,7 @@ export function combat(ctx, enc, def, alive) {
   while (state.round < MAX_ROUNDS && state.mhp > 0 && ctx.sim.some((s) => s.hp > 0)) {
     state.round += 1;
     for (const m of ctx.sim.filter((s) => s.hp > 0)) {
-      const swings = A.hasFlag(m.a, 'extraAttack') ? 2 : 1;
+      const swings = (A.hasFlag(m.a, 'extraAttack') ? 2 : 1) + A.sumTrait(m.a, 'swings');
       for (let s = 0; s < swings && state.mhp > 0; s++) attackOnce(ctx, m, mon, state, rolls, lines);
       if (state.mhp > 0) companionAttacks(ctx, m, mon, state, rolls, lines);
     }

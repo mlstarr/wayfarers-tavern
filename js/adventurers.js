@@ -17,7 +17,11 @@ import { assignGoal } from './goals.js';
 export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 const RARITY_WEIGHTS = [60, 25, 10, 4, 1];
 const RARITY_POINTS = [0, 2, 4, 6, 9];
-const XP_TABLE = [0, 100, 250, 450, 700, 1000, 1400, 1900, 2500, 3200];
+// Ability points gained at levels 4 and 8, by rarity: rarer heroes keep growing faster.
+export const GROWTH_POINTS = [1, 1, 2, 2, 3];
+export const GROWTH_LEVELS = [4, 8];
+// The top levels are a long climb (and easy jobs teach veterans little, see quests.js).
+const XP_TABLE = [0, 100, 250, 450, 700, 1050, 1550, 2250, 3200, 4500];
 export const MAX_LEVEL = XP_TABLE.length;
 
 export const mod = (score) => Math.floor((score - 10) / 2);
@@ -26,7 +30,7 @@ export const profBonus = (level) => 2 + Math.floor((level - 1) / 4);
 export function generateAdventurer(rng, opts = {}) {
   const rIdx = opts.rarity
     ? RARITIES.indexOf(opts.rarity)
-    : rng.weighted(RARITY_WEIGHTS.map((w, i) => [i, w * (1 + 0.25 * (opts.boost || 0) * i)]));
+    : rng.weighted((opts.weights || RARITY_WEIGHTS).map((w, i) => [i, w]));
   const ancestry = opts.ancestry || rng.weighted(ANCESTRY_IDS.map((id) => [id, ANCESTRIES[id].weight]));
   const clsId = opts.cls || rng.pick(CLASS_IDS);
   const cls = CLASSES[clsId];
@@ -221,9 +225,27 @@ export function gainXp(adv, amount, extra) {
     const offer = offerTalents(adv, extra);
     if (offer.length) adv.pendingTalents.push(offer);
     const path = grantPathRanks(adv).map((t) => t.name);
-    ups.push({ level: adv.level, hpGain, path });
+    const growth = GROWTH_LEVELS.includes(adv.level) ? growAbilities(adv) : [];
+    ups.push({ level: adv.level, hpGain, path, growth });
   }
   return ups;
+}
+
+// Rarity-scaled ability growth into the class's key abilities. Returns ['+1 STR', ...].
+function growAbilities(adv) {
+  const pts = GROWTH_POINTS[RARITIES.indexOf(adv.rarity)] || 1;
+  const order = CLASSES[adv.cls].priority;
+  const gained = {};
+  for (let i = 0, k = 0; i < pts && k < 12; k++) {
+    const ab = order[k % 3];
+    if (adv.abilities[ab] >= 20) continue;
+    const before = mod(adv.abilities[ab]);
+    adv.abilities[ab] += 1;
+    if (ab === 'con' && mod(adv.abilities.con) > before) { adv.maxHp += adv.level; adv.hp += adv.level; }
+    gained[ab] = (gained[ab] || 0) + 1;
+    i += 1;
+  }
+  return Object.entries(gained).map(([ab, n]) => `+${n} ${ab.toUpperCase()}`);
 }
 
 export function changeLoyalty(adv, n) {

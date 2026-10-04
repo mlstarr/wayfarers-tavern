@@ -13,6 +13,7 @@ export function recordDeeds(adv, result, quest) {
   if ((result.downed || []).includes(adv.id)) d.falls += 1;
   if (quest.expedition) d.expeditions += 1;
   if (result.outcome === 'disaster') d.disasters += 1;
+  if (quest.tier === 3 && ['triumph', 'success'].includes(result.outcome)) d.deadly = (d.deadly || 0) + 1;
   const fights = (result.encounters || []).filter((b) => b.kind);
   const last = fights[fights.length - 1];
   if (last && last.finale && last.success) d.finales += 1;
@@ -65,6 +66,7 @@ const TEXT = {
   triumphs: (n) => `won ${n} triumphs`,
   expeditions: (n) => `survived ${n} expeditions`,
   disasters: () => 'lived through a disaster',
+  deadly: (n) => `won ${n} deadly jobs`,
   finales: (n) => `won ${n} final battles`,
   saved: (n) => `healed allies ${n} times`,
   friends: () => 'made a true friend',

@@ -4,7 +4,7 @@
 //   dmg, dmgVs {tag|monster: n}, atkVs {tag|monster: n}, crit, resist, hazardResist,
 //   lifesteal, bloodied {attack, dmg}, finale, firstStrike, perkUses, healBonus,
 //   inspireBonus, sneak, companion, taunt, retaliate, fearless, exposed,
-//   fatigue, fatigueResist, rest, wage, xpSelf
+//   fatigue, fatigueResist, rest, wage, xpSelf, swings
 //   aura {roll, skill, attack, finale, ac, resist, hazard, heal, foeAtk, foeAc, gold, xp, ambush, adv}
 import { ABILITY_SHORT } from '../data/skills.js';
 import { MONSTERS } from '../data/monsters.js';
@@ -85,6 +85,7 @@ export function effectText(t) {
     p.push(`${list(b)} while below half HP`);
   }
   if (t.finale) p.push(`${plus(t.finale)} to every roll in the final encounter`);
+  if (t.swings) p.push(`${t.swings} more attack${t.swings > 1 ? 's' : ''} every round`);
   if (t.firstStrike) p.push('advantage on the first attack of every fight');
   if (t.perkUses) p.push('one more use of their class gift each quest');
   if (t.healBonus) p.push(`heals ${t.healBonus} more`);
