@@ -137,3 +137,17 @@
 .penalty { color: #f2a99a; font-weight: 700; margin: 8px 0 0; }
 .injuries { list-style: none; padding: 0; margin: 10px 0 0; color: #f2b8ab; text-align: left; }
 .injuries li { margin: 4px 0; }
+
+/* Bar turnover */
+.bar-head { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+@media (min-width: 760px) { .bar-head { flex-direction: row; align-items: center; justify-content: space-between; } .bar-head p { margin: 0; } }
+.recruit-foot { margin-top: 10px; }
+.recruit-foot .hire { margin-top: 0; }
+.recruit-meta { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--ink2); margin-top: 6px; font-variant-numeric: tabular-nums; }
+.link-btn { appearance: none; background: none; border: 0; padding: 4px 0; color: #8a3f1e; font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.stool { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 200px; text-align: center; border-style: dashed; }
+.stool-art { color: var(--text2); }
+.stool-art .icon { width: 32px; height: 32px; }
+.recruit-meta { gap: 6px; }
+.recruit-meta > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.link-btn { white-space: nowrap; flex: none; }

@@ -1,7 +1,7 @@
 // Smoke test and balance check for the logic layer. Run: node tools/smoke.mjs
 import { newGame, importSave, exportSave } from '../js/state.js';
 import { Rng } from '../js/rng.js';
-import { startingParty, refreshBar, hire, buySupply } from '../js/inn.js';
+import { startingParty, refreshBar, hire, buySupply, buyRound, sendAway } from '../js/inn.js';
 import { refreshBoard, sendParty, collectQuest, generateQuest, recommendedSupplies } from '../js/quests.js';
 import { resolveQuest } from '../js/resolve.js';
 import { generateAdventurer, applyRest, isAvailable } from '../js/adventurers.js';
@@ -132,9 +132,24 @@ check(tally.stories > 0 && tally.personal > 0 && tally.rankUps > 0, 'progression
 }
 console.log(`      quest lengths sent, in minutes: ${firstLengths.slice(0, 24).join(' ')}`);
 
+// 1c. Bar turnover
+{
+  const t0 = new Date(2026, 9, 6, 9, 0).getTime();
+  const s3 = newGame(31337, t0);
+  startingParty(s3, t0);
+  refreshBar(s3, t0);
+  const first = s3.bar.recruits.map((r) => r.id).join();
+  refreshBar(s3, Math.max(...s3.bar.recruits.map((r) => r.leavesAt)) + 1);
+  check(s3.bar.recruits.length + s3.bar.arrivals.length === 3 && s3.bar.recruits.map((r) => r.id).join() !== first, 'recruits move on and are replaced');
+  const gold = s3.gold;
+  const res = buyRound(s3, t0);
+  check(res.ok && s3.gold === gold - res.cost && s3.bar.recruits.length === 3, 'buying a round brings three new faces');
+  check(sendAway(s3, s3.bar.recruits[0].id, t0) && s3.bar.recruits.length === 2 && s3.bar.arrivals.length === 1, 'sending a recruit on frees a stool');
+}
+
 // 2. Save round trip
 const copy = importSave(exportSave(state));
-check(copy.roster.length === state.roster.length && copy.version === 3, 'save round-trips');
+check(copy.roster.length === state.roster.length && copy.version === 4, 'save round-trips');
 
 // 3. Migration from a version 1 save
 const v1 = JSON.parse(JSON.stringify(state));
@@ -142,7 +157,7 @@ v1.version = 1;
 delete v1.supplies; delete v1.bonds; delete v1.scenes;
 for (const a of v1.roster) { delete a.talents; delete a.pendingTalents; delete a.loyalty; delete a.buffs; delete a.goal; }
 const migrated = importSave(exportSave(v1));
-check(migrated.version === 3 && migrated.tavern && migrated.supplies && migrated.roster.every((a) => Array.isArray(a.talents)), 'v1 save migrates');
+check(migrated.version === 4 && migrated.tavern && migrated.bar.arrivals && migrated.supplies && migrated.roster.every((a) => Array.isArray(a.talents)), 'v1 save migrates');
 for (const a of migrated.roster) if (!a.goal) assignGoal(a);
 check(migrated.roster.every((a) => a.goal), 'migrated adventurers get goals');
 

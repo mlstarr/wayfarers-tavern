@@ -3,7 +3,7 @@ import { START_GOLD, START_LOYALTY } from './config.js';
 import { STARTING_SUPPLIES } from '../data/supplies.js';
 
 export const SAVE_KEY = 'wayfarers-tavern-save';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export function newGame(seed, now = Date.now()) {
   return {
@@ -17,7 +17,7 @@ export function newGame(seed, now = Date.now()) {
     pending: [],      // quests in progress: { id, quest, party, startAt, endAt, result }
     reports: [],      // archive of collected reports, newest first
     board: { quests: [], refills: [], counter: 0 },
-    bar: { epoch: null, recruits: [] },
+    bar: { recruits: [], arrivals: [], counter: 0 },
     supplies: { ...STARTING_SUPPLIES },
     bonds: {},        // 'a1|a2' -> number
     scenes: { slot: null, list: [] },
@@ -59,6 +59,11 @@ const MIGRATIONS = {
       a.arc = a.arc || null;
       a.legacy = a.legacy || null;
     }
+    return s;
+  },
+  // v3 -> v4: the bar turns over continuously
+  3: (s) => {
+    s.bar = { recruits: [], arrivals: [], counter: 0 };
     return s;
   },
 };

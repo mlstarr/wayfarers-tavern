@@ -1,6 +1,7 @@
 // Recruits at the bar, hiring and dismissing, and the quartermaster. Rooms live in js/tavern.js.
 import { Rng, seedFrom } from './rng.js';
-import { BAR_SIZE } from './config.js';
+import { BAR_SIZE, BAR_STAY, BAR_ARRIVE, ROUND_COST, MIN } from './config.js';
+import { paceOf } from './pace.js';
 import { rosterCap } from './tavern.js';
 import { assignArc } from './stories.js';
 import { generateAdventurer, addHistory, fullName } from './adventurers.js';
@@ -9,28 +10,71 @@ import { SUPPLIES } from '../data/supplies.js';
 
 export const HIRE_COST = { common: 20, uncommon: 45, rare: 90, epic: 180, legendary: 350 };
 
-export function barKey(now) {
-  const d = new Date(now);
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+// Early-game pacing applies at the bar too, so the first recruits turn over quickly.
+const paceMin = (state) => MIN * Math.max(0.25, paceOf(state).scale);
+
+function arrive(state, now) {
+  const b = state.bar;
+  const n = b.counter++;
+  const rng = new Rng(seedFrom(state.seed, 'recruit', n));
+  const adv = generateAdventurer(rng.fork('adv'));
+  adv.id = `r${n}`;
+  adv.arrivedAt = now;
+  adv.leavesAt = now + rng.int(BAR_STAY[0], BAR_STAY[1]) * paceMin(state);
+  b.recruits.push(adv);
 }
 
-export function nextBarAt(now) {
-  const d = new Date(now);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1).getTime();
-}
-
-// New faces at the bar each day. Returns true if the bar changed.
+// Recruits come and go: each waits a few hours, then a new face takes the stool.
+// Returns true if the bar changed.
 export function refreshBar(state, now) {
-  const key = barKey(now);
-  if (state.bar.epoch === key) return false;
-  const rng = new Rng(seedFrom(state.seed, 'bar', key));
-  const recruits = [];
-  for (let i = 0; i < BAR_SIZE; i++) {
-    const adv = generateAdventurer(rng.fork(`r${i}`));
-    adv.id = `r-${key}-${i}`;
-    recruits.push(adv);
+  const b = state.bar;
+  let changed = false;
+  const before = b.recruits.length;
+  b.recruits = b.recruits.filter((r) => r.leavesAt > now);
+  if (b.recruits.length !== before) changed = true;
+  const due = b.arrivals.filter((t) => t <= now);
+  if (due.length) {
+    b.arrivals = b.arrivals.filter((t) => t > now);
+    for (let k = 0; k < due.length; k++) arrive(state, now);
+    changed = true;
   }
-  state.bar = { epoch: key, recruits };
+  if (b.counter === 0) {
+    for (let k = 0; k < BAR_SIZE; k++) arrive(state, now);
+    changed = true;
+  }
+  while (b.recruits.length + b.arrivals.length < BAR_SIZE) {
+    b.arrivals.push(now + BAR_ARRIVE * paceMin(state));
+    changed = true;
+  }
+  return changed;
+}
+
+export function nextArrivalAt(state) {
+  return state.bar.arrivals.length ? Math.min(...state.bar.arrivals) : null;
+}
+
+export function roundCost(state) {
+  return ROUND_COST[0] + ROUND_COST[1] * state.tavern.rank;
+}
+
+// Pay for a round: everyone at the bar moves on and new faces arrive at once.
+export function buyRound(state, now) {
+  const cost = roundCost(state);
+  if (state.gold < cost) return { ok: false, reason: 'Not enough gold' };
+  state.gold -= cost;
+  state.bar.recruits = [];
+  state.bar.arrivals = [];
+  for (let k = 0; k < BAR_SIZE; k++) arrive(state, now);
+  addLog(state, `You bought a round. Word gets out, and new faces drift in.`, now);
+  return { ok: true, cost };
+}
+
+// Wave a recruit off; someone new sits down shortly after.
+export function sendAway(state, recruitId, now) {
+  const before = state.bar.recruits.length;
+  state.bar.recruits = state.bar.recruits.filter((r) => r.id !== recruitId);
+  if (state.bar.recruits.length === before) return false;
+  refreshBar(state, now);
   return true;
 }
 

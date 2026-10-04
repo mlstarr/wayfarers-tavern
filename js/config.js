@@ -25,7 +25,10 @@ export const PACE_STAGES = [
 ];
 export const EXPEDITION_MIN_STAGE = 2;
 
-export const BAR_SIZE = 3;              // recruits per day
+export const BAR_SIZE = 3;              // recruits at the bar at once
+export const BAR_STAY = [120, 240];     // game-minutes a recruit waits before moving on
+export const BAR_ARRIVE = 15;           // game-minutes until a new face fills an empty stool
+export const ROUND_COST = [10, 4];      // buying a round: base gold + per tavern rank
 export const REST_FRACTION = 0.1;       // share of max HP regained per REST_MIN game-minutes
 export const REST_MIN = 10;
 export const TIER_RENOWN = [0, 10, 40]; // renown needed to see tier 1, 2, 3 quests

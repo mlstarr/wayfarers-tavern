@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-04 (stories, tavern progression, penalties)
+Last updated: 2026-10-04 (bar turnover)
 
 ## Built
 **M1 core loop**
@@ -31,6 +31,8 @@ Last updated: 2026-10-04 (stories, tavern progression, penalties)
 - **Tavern rank** (`data/tavern.js`, `js/tavern.js`): renown sets rank (5 ranks); each rank gives gold, beds and harder quest tiers. Renown lost to failure never drops below the current rank.
 - **Rooms** (Rooms tab): taproom (ale income while away, 8 h cap), bunkhouse, infirmary, kitchen, armory, map room, training yard, chapel. Bonuses are snapshotted into each quest at send.
 - **Penalties** (`data/penalties.js`): heroes who fall get a lasting injury (healed by time or the herbalist); disasters may injure others. Fatigue +1 per quest (+2 expedition): tired -1, exhausted -2, fades with rest. Failure and disaster cost renown by tier. Daily wages at local midnight, at most 2 missed paydays charged; an empty chest costs everyone loyalty and heroes at 0 quit (never while questing). Contracts: deposit up front, 1.8x pay, deposit lost on failure.
+
+**Bar turnover** (save v4): 3 stools; each recruit stays 2 to 4 hours (paced early), then leaves and a new face arrives 15 min later. "Send on" frees a stool for free; "Buy a round" (10 gold + 4 per rank) replaces everyone at once. Constants in config.js (BAR_STAY, BAR_ARRIVE, ROUND_COST).
 
 ## How to test
 - `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, and prints the balance table.

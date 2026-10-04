@@ -2,7 +2,7 @@
 import { newGame, load, save, importSave, addLog } from './state.js';
 import { newSeed } from './rng.js';
 import { refreshBoard, sendParty, collectQuest, isReturned } from './quests.js';
-import { refreshBar, hire, dismiss, startingParty, buySupply } from './inn.js';
+import { refreshBar, hire, dismiss, startingParty, buySupply, buyRound, sendAway } from './inn.js';
 import { applyRest, applyRecovery, fullName, setRecoveryPace } from './adventurers.js';
 import { tavernMods, collectAle, processPaydays, checkRankUp, buyUpgrade } from './tavern.js';
 import { assignArc, playStory } from './stories.js';
@@ -157,6 +157,13 @@ const ctx = {
   hire(recruitId) {
     const res = hire(state, recruitId, Date.now());
     if (res.ok) { toast(`${fullName(res.adv)} joined the company.`); commit(); } else toast(res.reason);
+  },
+  buyRound() {
+    const res = buyRound(state, Date.now());
+    if (res.ok) { toast(`You bought a round for ${res.cost} gold. New faces drift in.`); commit(); } else toast(res.reason);
+  },
+  sendAway(id) {
+    if (sendAway(state, id, Date.now())) { toast('They finish their drink and head for the door.'); commit(); }
   },
   buy(id) {
     const res = buySupply(state, id, Date.now());
