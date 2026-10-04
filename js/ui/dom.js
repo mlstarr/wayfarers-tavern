@@ -30,7 +30,8 @@ export function fmtCountdown(ms) {
 
 // Quest lengths: "15 min", "4 hr", "1.5 hr"
 export function fmtSpan(minutes) {
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 1) return `${Math.round(minutes * 60)} sec`;
+  if (minutes < 60) return `${Number.isInteger(minutes) ? minutes : minutes.toFixed(1).replace(/\.0$/, '')} min`;
   const hr = minutes / 60;
   return `${Number.isInteger(hr) ? hr : hr.toFixed(1)} hr`;
 }

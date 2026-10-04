@@ -15,6 +15,16 @@ export const REFILL_MIN = 20;           // game-minutes until a taken or expired
 export const POSTING_LIFE = [240, 480]; // game-minutes a posting stays up
 export const EXPEDITION_CHANCE = 0.3;   // chance a new posting is an expedition (max one on the board)
 
+// Early-game pacing: quest lengths, refills, resting and scenes are scaled down
+// until the player has sent this many quests. The first jobs finish in under a minute.
+export const PACE_STAGES = [
+  { sent: 0, scale: 0.12 },
+  { sent: 3, scale: 0.3 },
+  { sent: 8, scale: 0.6 },
+  { sent: 15, scale: 1 },
+];
+export const EXPEDITION_MIN_STAGE = 2;
+
 export const BAR_SIZE = 3;              // recruits per day
 export const REST_FRACTION = 0.1;       // share of max HP regained per REST_MIN game-minutes
 export const REST_MIN = 10;

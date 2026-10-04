@@ -3,7 +3,8 @@ import { newGame, load, save, importSave, addLog } from './state.js';
 import { newSeed } from './rng.js';
 import { refreshBoard, sendParty, collectQuest, isReturned } from './quests.js';
 import { refreshBar, hire, dismiss, startingParty, buySupply } from './inn.js';
-import { applyRest, fullName } from './adventurers.js';
+import { applyRest, fullName, setRestPace } from './adventurers.js';
+import { paceOf } from './pace.js';
 import { openDispatches, answerDispatch } from './dispatch.js';
 import { refreshScenes, liveScenes, resolveScene } from './scenes.js';
 import { chooseTalent } from './talents.js';
@@ -50,9 +51,11 @@ function alerts(now = Date.now()) {
 // Board, bar, scenes, resting, returns, messengers. Returns true if anything changed.
 function maintenance() {
   const now = Date.now();
+  const pace = paceOf(state);
+  setRestPace(pace.scale);
   let changed = refreshBoard(state, now);
   changed = refreshBar(state, now) || changed;
-  changed = refreshScenes(state, now) || changed;
+  changed = refreshScenes(state, now, pace.scale) || changed;
   for (const a of state.roster) {
     changed = applyRest(a, now) || changed;
     if (!a.goal) { assignGoal(a); changed = true; }

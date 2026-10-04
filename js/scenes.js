@@ -8,7 +8,7 @@ import { bondValue, bondLevel, addBond } from './bonds.js';
 import { fill } from './reports.js';
 import { addLog } from './state.js';
 
-const slotOf = (now) => Math.floor(now / (SCENE_EVERY * MIN));
+const slotOf = (now, scale) => Math.floor(now / (SCENE_EVERY * Math.max(0.25, scale) * MIN));
 
 function fits(state, tpl, actors) {
   const n = tpl.needs;
@@ -27,12 +27,15 @@ function fits(state, tpl, actors) {
 }
 
 // Every SCENE_EVERY game-minutes, idle adventurers may start a scene. Returns true if anything changed.
-export function refreshScenes(state, now) {
-  const slot = slotOf(now);
-  if (state.scenes.slot === slot) return false;
+// scale: early-game pacing. The first scene is guaranteed right after the first report.
+export function refreshScenes(state, now, scale = 1) {
+  const slot = slotOf(now, scale);
+  state.flags = state.flags || {};
+  const first = !state.flags.firstScene && state.stats.questsDone >= 1;
+  if (!first && state.scenes.slot === slot) return false;
   state.scenes.slot = slot;
-  const rng = new Rng(seedFrom(state.seed, 'scene', slot));
-  if (!rng.chance(SCENE_CHANCE)) return true;
+  const rng = new Rng(seedFrom(state.seed, 'scene', slot, first ? 'first' : ''));
+  if (!first && !rng.chance(SCENE_CHANCE)) return true;
   const busy = new Set(state.scenes.list.flatMap((s) => s.actors));
   const free = rng.shuffle(state.roster.filter((a) => a.status === 'idle' && !busy.has(a.id)));
   const recent = state.scenes.list.map((s) => s.tpl);
@@ -50,6 +53,7 @@ export function refreshScenes(state, now) {
   }
   if (!options.length) return true;
   const pick = rng.pick(options);
+  if (first) state.flags.firstScene = true;
   state.scenes.list.push({ id: `sc${slot}`, tpl: pick.tpl.id, actors: pick.actors.map((a) => a.id), at: now });
   if (state.scenes.list.length > SCENE_MAX) state.scenes.list.shift();
   return true;

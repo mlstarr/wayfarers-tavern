@@ -18,7 +18,8 @@ function finaleMonster(quest) {
 
 // How many messengers a quest gets, by length in game-minutes.
 function dispatchCount(quest) {
-  if (quest.encounters.length < 2 || quest.duration < 5) return 0;
+  if (quest.encounters.length < 2) return 0;
+  if (quest.duration < 5) return quest.intro ? 1 : 0; // early jobs teach messengers
   return quest.duration >= 180 && quest.encounters.length >= 3 ? 2 : 1;
 }
 

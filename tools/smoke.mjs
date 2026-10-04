@@ -23,7 +23,9 @@ check(state.roster.every((a) => a.goal), 'everyone has a personal goal');
 refreshBoard(state, now);
 refreshBar(state, now);
 check(state.board.quests.length === 6, `board has 6 postings (got ${state.board.quests.length})`);
-check(state.board.quests.some((q) => q.duration <= 10), 'board has a short job');
+check(state.board.quests.every((q) => q.duration <= 1.25), `first board is all quick jobs (${state.board.quests.map((q) => q.duration).join(', ')})`);
+check(state.board.quests.every((q) => !q.conditions.length && !q.expedition), 'first jobs are calm');
+const firstLengths = [];
 
 const tally = { dispatches: 0, answered: 0, scenes: 0, talents: 0, expeditions: 0, events: 0 };
 for (let loop = 0; loop < 80; loop++) {
@@ -45,6 +47,8 @@ for (let loop = 0; loop < 80; loop++) {
     const res = sendParty(state, quest.id, ready.slice(0, quest.party[1]).map((a) => a.id), packed, now);
     check(res.ok, `send ok: ${res.reason || ''}`);
     const p = res.pending;
+    firstLengths.push(quest.duration);
+    if (state.stats.questsSent === 1) check(p.dispatches.length === 1, 'the very first job brings a messenger');
     for (const d of p.dispatches) {
       tally.dispatches += 1;
       const open = openDispatches(state, d.at);
@@ -70,6 +74,7 @@ for (let loop = 0; loop < 80; loop++) {
 console.log(`Loop: ${state.stats.questsDone} quests, ${state.gold} gold, ${state.renown} renown, roster ${state.roster.length}, levels ${state.roster.map((a) => a.level).join('/')}`);
 console.log(`      ${tally.dispatches} dispatches (${tally.answered} answered), ${tally.scenes} scenes, ${tally.talents} talents, ${tally.expeditions} expeditions, ${tally.events} bond/goal events, ${Object.keys(state.bonds).length} bonds`);
 check(tally.dispatches > 0 && tally.scenes > 0 && tally.talents > 0, 'new systems all fired');
+console.log(`      quest lengths sent, in minutes: ${firstLengths.slice(0, 24).join(' ')}`);
 
 // 2. Save round trip
 const copy = importSave(exportSave(state));

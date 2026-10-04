@@ -1,7 +1,7 @@
 // Quest generation, the quest board, sending parties and collecting results.
 import { Rng, seedFrom } from './rng.js';
 import {
-  MIN, BOARD_SIZE, REFILL_MIN, POSTING_LIFE, EXPEDITION_CHANCE, TIER_RENOWN, REPORT_ARCHIVE,
+  MIN, BOARD_SIZE, REFILL_MIN, POSTING_LIFE, EXPEDITION_CHANCE, EXPEDITION_MIN_STAGE, TIER_RENOWN, REPORT_ARCHIVE,
 } from './config.js';
 import { QUEST_TEMPLATES, TIER_DURATIONS, EXPEDITION_DURATIONS, PLACES } from '../data/quests.js';
 import { ENCOUNTERS } from '../data/encounters.js';
@@ -15,6 +15,7 @@ import { progressAfterQuest, progressBond, settleGoals } from './goals.js';
 import { isAvailable, gainXp, addHistory, fullName, changeLoyalty } from './adventurers.js';
 import { fill, checkLabel } from './reports.js';
 import { nextId, addLog } from './state.js';
+import { paceOf, paced } from './pace.js';
 
 export function unlockedTiers(state) {
   return [1, 2, 3].filter((t) => state.renown >= TIER_RENOWN[t - 1]);
@@ -40,7 +41,8 @@ function rollConditions(rng, tier, encounters, duration) {
   return out;
 }
 
-export function generateQuest(rng, tier, id, { avoid = [], expedition = false, now = 0 } = {}) {
+// scale: early-game pacing (1 = full length). calm: no conditions, for the very first jobs.
+export function generateQuest(rng, tier, id, { avoid = [], expedition = false, now = 0, scale = 1, calm = false } = {}) {
   const fits = QUEST_TEMPLATES.filter((q) => q.tiers.includes(tier) && !!q.expedition === expedition);
   const fresh = fits.filter((q) => !avoid.includes(q.id));
   const tpl = rng.pick(fresh.length ? fresh : fits);
@@ -49,16 +51,17 @@ export function generateQuest(rng, tier, id, { avoid = [], expedition = false, n
   const count = rng.int(tpl.count[0], tpl.count[1]);
   const ids = rng.shuffle(tpl.pool).slice(0, count);
   const finale = Array.isArray(tpl.finale) ? rng.pick(tpl.finale) : tpl.finale;
-  const scale = Math.max(2, Math.round((pMin + pMax) / 2));
-  const encounters = ids.map((defId) => buildEncounter(defId, tier, scale, rng));
-  if (finale) encounters.push({ ...buildEncounter(finale, tier, scale, rng), finale: true });
+  const fightSize = Math.max(2, Math.round((pMin + pMax) / 2));
+  const encounters = ids.map((defId) => buildEncounter(defId, tier, fightSize, rng));
+  if (finale) encounters.push({ ...buildEncounter(finale, tier, fightSize, rng), finale: true });
 
   // Longer chains of encounters take longer.
   const durations = expedition ? EXPEDITION_DURATIONS : TIER_DURATIONS[tier];
   const span = tpl.count[1] - tpl.count[0];
   const pos = span ? (count - tpl.count[0]) / span : 0.5;
   const idx = Math.max(0, Math.min(durations.length - 1, Math.round(pos * (durations.length - 1)) + rng.int(-1, 1)));
-  const duration = durations[idx];
+  const full = durations[idx];
+  const duration = expedition ? full : paced(full, scale);
   const n = encounters.length;
   const wiggle = 0.9 + rng.next() * 0.2;
   const rich = expedition ? 1.5 : 1;
@@ -71,10 +74,11 @@ export function generateQuest(rng, tier, id, { avoid = [], expedition = false, n
     blurb: fill(tpl.blurb, vars),
     tier,
     expedition,
-    duration,             // game-minutes
+    duration,             // game-minutes (after early-game pacing)
+    intro: scale < 0.5,   // early job: gets a messenger even though it is short
     party: [pMin, pMax],
     encounters,
-    conditions: rollConditions(rng, tier, encounters, duration),
+    conditions: calm ? [] : rollConditions(rng, tier, encounters, duration),
     gold: Math.round((8 + 10 * tier) * n * (1 + duration / 240) * rich * wiggle),
     xp: Math.round(10 * tier * n * (1 + duration / 360) * rich),
     postedAt: now,
@@ -125,9 +129,12 @@ function spawnPosting(state, now) {
   const rng = new Rng(seedFrom(state.seed, 'post', n));
   const tiers = unlockedTiers(state);
   const easy = b.quests.filter((q) => q.tier === 1 && !q.expedition).length;
-  const expedition = n >= 3 && !b.quests.some((q) => q.expedition) && rng.chance(EXPEDITION_CHANCE);
+  const pace = paceOf(state);
+  const expedition = pace.stage >= EXPEDITION_MIN_STAGE && !b.quests.some((q) => q.expedition) && rng.chance(EXPEDITION_CHANCE);
   const tier = expedition ? rng.pick(tiers) : easy < 2 ? 1 : rng.pick(tiers);
-  b.quests.push(generateQuest(rng, tier, `q${n}`, { avoid: b.quests.map((q) => q.template), expedition, now }));
+  b.quests.push(generateQuest(rng, tier, `q${n}`, {
+    avoid: b.quests.map((q) => q.template), expedition, now, scale: pace.scale, calm: pace.stage === 0,
+  }));
   b.quests.sort((x, y) => Number(x.expedition) - Number(y.expedition) || x.tier - y.tier || x.duration - y.duration);
 }
 
@@ -148,10 +155,15 @@ export function refreshBoard(state, now) {
     changed = true;
   }
   while (b.quests.length + b.refills.length < BOARD_SIZE) {
-    b.refills.push(now + REFILL_MIN * MIN);
+    b.refills.push(now + refillDelay(state));
     changed = true;
   }
   return changed;
+}
+
+// Early on, taken postings are replaced within minutes.
+function refillDelay(state) {
+  return Math.max(1, REFILL_MIN * paceOf(state).scale) * MIN;
 }
 
 export function nextPostingAt(state) {
@@ -200,7 +212,7 @@ export function sendParty(state, questId, advIds, packed, now) {
     a.buffs = (a.buffs || []).map((b) => ({ ...b, quests: b.quests - 1 })).filter((b) => b.quests > 0);
   }
   state.board.quests = state.board.quests.filter((q) => q.id !== questId);
-  state.board.refills.push(now + REFILL_MIN * MIN);
+  state.board.refills.push(now + refillDelay(state));
   state.pending.push(pending);
   state.stats.questsSent += 1;
   addLog(state, `${party.map((a) => a.name.split(' ')[0]).join(', ')} set out: ${quest.title}.`, now);

@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-04 (depth update after M1 playtest)
+Last updated: 2026-10-04 (early-game pacing ramp)
 
 ## Built
 **M1 core loop**
@@ -19,6 +19,12 @@ Last updated: 2026-10-04 (depth update after M1 playtest)
 - **Loyalty:** 0 to 5 hearts; at 5 the hero is devoted (+1 to every roll).
 - **Bonds** (`js/bonds.js`): questing together, triumphs and heals build bonds; friends +1, sworn +2, rivals -1 to rolls when in the same party.
 - **Talents** (`data/talents.js`, `js/talents.js`): every level-up offers a choice of two (one class, one general). Roster tab shows a dot when a choice is waiting.
+
+**Early-game pacing** (`js/pace.js`, `PACE_STAGES` in config.js)
+- Quest lengths, posting refills, resting and scene timing scale with quests sent: x0.12 for the first 3, x0.3 to 7, x0.6 to 14, full from 15.
+- The first jobs take about 30 seconds, have no conditions, and still bring a messenger so the player learns dispatches in their first minute. Expeditions appear from stage 2.
+- The first scene is guaranteed right after the first report.
+- Measured in a browser without `?fast`: first messenger at 22 s, party back at 31 s.
 
 ## How to test
 - `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, and prints the balance table.

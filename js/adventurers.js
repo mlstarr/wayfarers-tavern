@@ -195,8 +195,12 @@ export const isDevoted = (adv) => (adv.loyalty || 0) >= MAX_LOYALTY;
 export const isRested = (adv) => adv.hp >= Math.ceil(adv.maxHp / 2);
 export const isAvailable = (adv) => adv.status === 'idle' && isRested(adv);
 
+// Early-game pacing speeds up resting too. Set by main.js from js/pace.js.
+let restPace = 1;
+export function setRestPace(scale) { restPace = scale; }
+
 function msPerHp(adv) {
-  return (REST_MIN * MIN) / Math.max(1, adv.maxHp * REST_FRACTION);
+  return (REST_MIN * MIN * restPace) / Math.max(1, adv.maxHp * REST_FRACTION);
 }
 
 // Idle adventurers recover HP over real time. Returns true if HP changed.
