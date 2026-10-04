@@ -33,6 +33,7 @@ export function goalProgress(goal, adv) {
 }
 
 function isDone(goal, adv) {
+  if (goal.forced) return true;
   const p = goalProgress(goal, adv);
   return p.have >= p.need;
 }

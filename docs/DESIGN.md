@@ -88,6 +88,10 @@ A quest is a chain of 3 to 6 encounters, each resolved by visible d20 checks.
 
 **Conditions and supplies:** quests carry conditions (night, rain, cold, cursed ground, venom, long road, fears fire). Supplies bought from the quartermaster counter them. Parties can be recalled early for partial rewards (later milestone).
 
+## Stories and progression (built)
+
+Every hero has a personal story arc (introduction, three beats, a personal quest, a legacy). The tavern ranks up with renown, and rooms bought with gold give every party bonuses. Penalties (injuries, fatigue, renown loss, wages, contract deposits) create pressure; time away is never charged more than two paydays. See docs/STATUS.md for numbers.
+
 ## The Inn
 
 | Room | What it does | Upgrades improve |

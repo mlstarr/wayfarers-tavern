@@ -11,6 +11,9 @@ import { ABILITIES, ABILITY_SHORT, ABILITY_NAMES, SKILLS } from '../../data/skil
 import { MAX_LOYALTY } from '../config.js';
 import { goalText, goalProgress } from '../goals.js';
 import { bondsOf } from '../bonds.js';
+import { INJURIES } from '../../data/penalties.js';
+import { storyStatus } from '../stories.js';
+import { wageOf } from '../tavern.js';
 import * as A from '../adventurers.js';
 
 export function statusOf(adv, now) {
@@ -27,8 +30,11 @@ function hpBar(adv) {
 }
 
 function quirkChips(adv) {
-  return h('div', { class: 'chips' }, adv.quirks.map((q) =>
-    h('span', { class: `chip ${QUIRKS[q].tone}`, title: QUIRKS[q].desc }, QUIRKS[q].name)));
+  const tired = A.fatigueLevel(adv);
+  return h('div', { class: 'chips' },
+    (adv.injuries || []).map((i) => h('span', { class: 'chip injury', title: INJURIES[i.id].desc }, INJURIES[i.id].name)),
+    tired ? h('span', { class: 'chip tired', title: `${tired.mod} to every roll until rested` }, tired.label) : null,
+    adv.quirks.map((q) => h('span', { class: `chip ${QUIRKS[q].tone}`, title: QUIRKS[q].desc }, QUIRKS[q].name)));
 }
 
 function statusBadge(adv, now) {
@@ -87,7 +93,8 @@ function talentChoice(adv, onChoose) {
 }
 
 // state: needed for bonds. onChooseTalent(index): level-up choice handler.
-export function adventurerDetail(adv, { now = Date.now(), actions, state, onChooseTalent } = {}) {
+// onHeal(injuryId) and herbCost: the herbalist button for injuries.
+export function adventurerDetail(adv, { now = Date.now(), actions, state, onChooseTalent, onHeal, herbCost } = {}) {
   const cls = CLASSES[adv.cls];
   const anc = ANCESTRIES[adv.ancestry];
   const bg = BACKGROUNDS.find((b) => b.id === adv.background);
@@ -98,6 +105,8 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
   const gp = goal ? goalProgress(goal, adv) : null;
   const bonds = state && adv.id ? bondsOf(state, adv.id) : [];
   const nameOf = (id) => { const o = state && state.roster.find((x) => x.id === id); return o ? A.fullName(o) : null; };
+  const story = storyStatus(adv);
+  const tired = A.fatigueLevel(adv);
 
   return h('div', { class: 'detail' },
     talentChoice(adv, onChooseTalent),
@@ -105,6 +114,9 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
       adventurerCard(adv, { now }),
       h('div', { class: 'detail-facts' },
         h('p', { class: 'lead' }, `${bg.name}. ${bg.line}`),
+        story ? h('div', { class: 'goal story' },
+          h('span', { class: 'muted small' }, 'Story'),
+          h('p', null, h('b', null, `${story.title}. `), story.text)) : null,
         goal ? h('div', { class: 'goal' },
           h('span', { class: 'muted small' }, 'Personal goal'),
           h('p', null, goalText(goal)),
@@ -116,9 +128,15 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
           fact('Attack', `${sign(A.attackBonus(adv))} · ${A.damageDice(adv)}`),
           fact('Level', next ? `${adv.level} (${adv.xp}/${next} XP)` : `${adv.level} (max)`),
           fact('Quests', `${adv.stats.quests} · ${adv.stats.triumphs} triumphs`),
-          fact('Natural 20s / 1s', `${adv.stats.nat20} / ${adv.stats.nat1}`)),
+          fact('Natural 20s / 1s', `${adv.stats.nat20} / ${adv.stats.nat1}`),
+          fact('Daily wage', `${wageOf(adv)} gold`),
+          fact('Fatigue', tired ? `${tired.label} (${tired.mod})` : 'Fresh')),
         next ? h('div', { class: 'xpbar', title: 'Experience' },
           h('i', { style: `width:${Math.min(100, Math.round((adv.xp / next) * 100))}%` })) : null)),
+    (adv.injuries || []).length ? [h('h3', null, 'Injuries'),
+      h('ul', { class: 'traits' }, adv.injuries.map((i) => h('li', { class: 'bad' },
+        h('b', null, `${INJURIES[i.id].name}. `), INJURIES[i.id].desc, ' Heals in ', countdown(i.healAt, 'moments'), '. ',
+        onHeal ? h('button', { class: 'btn small', onclick: () => onHeal(i.id) }, `Herbalist: ${herbCost} gold`) : null)))] : null,
     h('h3', null, 'Ability scores'),
     h('div', { class: 'abilities' }, ABILITIES.map((ab) =>
       h('div', { class: 'ability', title: ABILITY_NAMES[ab] },
@@ -129,6 +147,7 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
     h('ul', { class: 'traits' },
       h('li', null, h('b', null, `${cls.name}. `), cls.perkText),
       anc.trait ? h('li', null, h('b', null, `${anc.name}. `), anc.traitText) : null,
+      adv.legacy && state ? h('li', { class: 'talent' }, h('b', null, 'Legacy. '), storyStatus(adv).text.replace(/^Complete\. /, '')) : null,
       (adv.talents || []).map((t) => h('li', { class: 'talent' }, h('b', null, `${TALENTS[t].name}. `), TALENTS[t].desc)),
       adv.quirks.map((q) => h('li', { class: QUIRKS[q].tone }, h('b', null, `${QUIRKS[q].name}. `), QUIRKS[q].desc)),
       (adv.buffs || []).map((b) => h('li', { class: 'good' }, h('b', null, `${b.label}. `), `+${b.mod} to rolls on the next quest.`)),

@@ -60,6 +60,10 @@ export function openReport(record) {
       h('span', { class: 'gold', html: icon('coin') }, `+${r.gold} gold`),
       h('span', { html: icon('renown') }, `+${r.renown} renown`),
       h('span', null, `+${r.xp} XP each`)),
+    record.renownLost ? h('p', { class: 'penalty' }, `-${record.renownLost} renown: word of the ${r.outcome} spread.`) : null,
+    record.depositBack ? h('p', { class: 'muted small' }, `Contract deposit of ${record.depositBack} gold returned${record.contractBonus ? `, plus ${record.contractBonus} from the map room's bargaining` : ''}.`) : null,
+    (record.injuries || []).length ? h('ul', { class: 'injuries' }, record.injuries.map((i) =>
+      h('li', null, h('b', null, i.name), ` came home with a ${i.injury.toLowerCase()} (${i.desc.replace(/\.$/, '').toLowerCase()} until healed).`))) : null,
     r.potionsUsed ? h('p', { class: 'muted small' }, `${r.potionsUsed} healing potion${r.potionsUsed > 1 ? 's' : ''} used${r.potionsLeft ? `, ${r.potionsLeft} brought home` : ''}.`) : null,
     record.levelUps.length ? h('ul', { class: 'levelups' }, record.levelUps.map((u) =>
       h('li', null, h('b', null, u.name), ` reached level ${u.level} (+${u.hpGain} max HP). Choose a talent on the roster.`))) : null,

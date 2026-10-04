@@ -5,6 +5,8 @@ import { NAMES, EPITHETS } from '../data/names.js';
 import { BACKGROUNDS } from '../data/backgrounds.js';
 import { QUIRKS, QUIRK_IDS } from '../data/quirks.js';
 import { TALENTS } from '../data/talents.js';
+import { INJURIES, INJURY_IDS, FATIGUE_MIN, FATIGUE_LEVELS } from '../data/penalties.js';
+import { ARCS } from '../data/arcs.js';
 import { ABILITIES, SKILLS } from '../data/skills.js';
 import { MIN, REST_FRACTION, REST_MIN, START_LOYALTY, MAX_LOYALTY } from './config.js';
 import { offerTalents } from './talents.js';
@@ -85,16 +87,21 @@ export function generateAdventurer(rng, opts = {}) {
   return adv;
 }
 
-// Quirks and talents share effect fields: mods, adv, dis, hp, ac, flag, special.
+// Quirks, talents, injuries and legacies share effect fields:
+// mods, adv, dis, ac, rollMod, attackMod, flag, special.
 export function traits(adv) {
   return [
     ...adv.quirks.map((q) => QUIRKS[q]),
     ...(adv.talents || []).map((t) => TALENTS[t]),
+    ...(adv.injuries || []).map((i) => INJURIES[i.id]),
+    ...(adv.legacy ? [ARCS[adv.legacy].legacy] : []),
   ];
 }
 
+// Generation-time HP only counts quirks (talents and legacies add HP when gained).
+
 export function traitHp(adv) {
-  return traits(adv).reduce((s, t) => s + (t.hp || 0), 0);
+  return adv.quirks.reduce((s, q) => s + (QUIRKS[q].hp || 0), 0);
 }
 
 export function hasFlag(adv, flag) {
@@ -130,11 +137,14 @@ export function checkBonus(adv, skill, ability) {
     if (skill && t.mods[skill]) bonus += t.mods[skill];
     if (t.mods[ab]) bonus += t.mods[ab];
   }
+  for (const t of traits(adv)) bonus += t.rollMod || 0;
   return bonus;
 }
 
 export function attackBonus(adv) {
-  return mod(adv.abilities[CLASSES[adv.cls].attack]) + profBonus(adv.level);
+  let bonus = mod(adv.abilities[CLASSES[adv.cls].attack]) + profBonus(adv.level);
+  for (const t of traits(adv)) bonus += (t.rollMod || 0) + (t.attackMod || 0);
+  return bonus;
 }
 
 export function damageDice(adv) {
@@ -195,12 +205,61 @@ export const isDevoted = (adv) => (adv.loyalty || 0) >= MAX_LOYALTY;
 export const isRested = (adv) => adv.hp >= Math.ceil(adv.maxHp / 2);
 export const isAvailable = (adv) => adv.status === 'idle' && isRested(adv);
 
-// Early-game pacing speeds up resting too. Set by main.js from js/pace.js.
-let restPace = 1;
-export function setRestPace(scale) { restPace = scale; }
+// Recovery speed: early-game pacing and tavern rooms. Set by main.js each maintenance pass.
+// rest: multiplies time (lower is faster). fatigue: divides fatigue time (kitchen).
+const pace = { rest: 1, fatigue: 1 };
+export function setRecoveryPace(rest, fatigue = 1) { pace.rest = rest; pace.fatigue = fatigue; }
+export const restScale = () => pace.rest;
 
 function msPerHp(adv) {
-  return (REST_MIN * MIN * restPace) / Math.max(1, adv.maxHp * REST_FRACTION);
+  return (REST_MIN * MIN * pace.rest) / Math.max(1, adv.maxHp * REST_FRACTION);
+}
+
+// ---- Fatigue and injuries ----
+
+export function fatigueLevel(adv) {
+  return FATIGUE_LEVELS.find((l) => (adv.fatigue || 0) >= l.min) || null;
+}
+
+export function addFatigue(adv, n, at) {
+  adv.fatigue = Math.min(4, (adv.fatigue || 0) + n);
+  adv.fatigueAt = at;
+}
+
+// Gives a random new injury that heals after resting. Returns the injury def, or null.
+export function addInjury(adv, rng, at) {
+  const have = (adv.injuries || []).map((i) => i.id);
+  const pool = INJURY_IDS.filter((id) => !have.includes(id));
+  if (!pool.length) return null;
+  const id = rng.pick(pool);
+  adv.injuries = [...(adv.injuries || []), { id, healAt: at + INJURIES[id].heal * MIN * pace.rest }];
+  return INJURIES[id];
+}
+
+export function healInjury(adv, id) {
+  adv.injuries = (adv.injuries || []).filter((i) => i.id !== id);
+}
+
+// Idle heroes shed fatigue; injuries heal on their own clock. Returns true if anything changed.
+export function applyRecovery(adv, now) {
+  let changed = false;
+  const before = (adv.injuries || []).length;
+  if (before) {
+    adv.injuries = adv.injuries.filter((i) => i.healAt > now);
+    if (adv.injuries.length !== before) changed = true;
+  }
+  if (adv.status === 'idle' && adv.fatigue > 0) {
+    const per = (FATIGUE_MIN * MIN * pace.rest) / pace.fatigue;
+    const start = adv.fatigueAt || now;
+    const n = Math.floor((now - start) / per);
+    if (!adv.fatigueAt) adv.fatigueAt = now;
+    if (n > 0) {
+      adv.fatigue = Math.max(0, adv.fatigue - n);
+      adv.fatigueAt = adv.fatigue ? start + n * per : null;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 // Idle adventurers recover HP over real time. Returns true if HP changed.

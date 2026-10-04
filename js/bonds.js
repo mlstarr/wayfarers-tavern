@@ -1,4 +1,5 @@
 // Bonds between adventurers: friendships and rivalries built on the road and in the tavern.
+import { fatigueLevel } from './adventurers.js';
 const LEVELS = [
   { min: 10, key: 'sworn', label: 'Sworn companions', mod: 2 },
   { min: 5, key: 'friends', label: 'Friends', mod: 1 },
@@ -66,6 +67,8 @@ export function partyBonuses(state, party) {
     bond = Math.max(-2, Math.min(2, bond));
     if (bond) { total += bond; n.push(`${bond > 0 ? 'bonds' : 'rivalry'} ${sign(bond)}`); }
     if ((a.loyalty || 0) >= 5) { total += 1; n.push('devoted +1'); }
+    const tired = fatigueLevel(a);
+    if (tired) { total += tired.mod; n.push(`${tired.label.toLowerCase()} ${tired.mod}`); }
     for (const b of a.buffs || []) { total += b.mod; n.push(`${b.label.toLowerCase()} ${sign(b.mod)}`); }
     bonus[a.id] = total;
     notes[a.id] = n;

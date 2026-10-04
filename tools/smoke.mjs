@@ -10,6 +10,10 @@ import { refreshScenes, liveScenes, resolveScene } from '../js/scenes.js';
 import { chooseTalent } from '../js/talents.js';
 import { assignGoal } from '../js/goals.js';
 import { MIN } from '../js/config.js';
+import { readyStories, playStory } from '../js/stories.js';
+import { processPaydays, collectAle, buyUpgrade, rosterCap } from '../js/tavern.js';
+import { UPGRADE_IDS } from '../data/tavern.js';
+import { applyRecovery } from '../js/adventurers.js';
 
 let failures = 0;
 const check = (cond, msg) => { if (!cond) { failures += 1; console.error('FAIL:', msg); } };
@@ -27,24 +31,37 @@ check(state.board.quests.every((q) => q.duration <= 1.25), `first board is all q
 check(state.board.quests.every((q) => !q.conditions.length && !q.expedition), 'first jobs are calm');
 const firstLengths = [];
 
-const tally = { dispatches: 0, answered: 0, scenes: 0, talents: 0, expeditions: 0, events: 0 };
+const tally = { dispatches: 0, answered: 0, scenes: 0, talents: 0, expeditions: 0, events: 0, stories: 0, personal: 0, legacies: 0, injuries: 0, contracts: 0, renownLost: 0, rankUps: 0, paydays: 0, built: 0 };
+check(readyStories(state).length === 3, 'all three starting heroes have an introduction waiting');
 for (let loop = 0; loop < 80; loop++) {
   refreshBoard(state, now);
   refreshScenes(state, now);
-  for (const a of state.roster) applyRest(a, now);
+  for (const a of state.roster) { applyRest(a, now); applyRecovery(a, now); }
+  tally.paydays += processPaydays(state, now).length;
+  collectAle(state, now);
+  for (const a of readyStories(state)) {
+    const out = playStory(state, a.id, loop % 2, now);
+    if (!out.error) tally.stories += 1; else { const o2 = playStory(state, a.id, 1 - (loop % 2), now); if (!o2.error) tally.stories += 1; }
+  }
+  for (const id of UPGRADE_IDS) if (state.gold > 300 && buyUpgrade(state, id, now).ok) tally.built += 1;
   for (const s of liveScenes(state)) {
     const res = resolveScene(state, s.id, 0, now);
     if (!res.error) tally.scenes += 1;
   }
   for (const a of state.roster) while (a.pendingTalents.length) { check(chooseTalent(a, loop % 2) || chooseTalent(a, 0), 'talent chosen'); tally.talents += 1; }
   const ready = state.roster.filter(isAvailable);
-  const quest = state.board.quests.find((q) => q.party[0] <= ready.length);
+  const quest = state.board.quests.find((q) => q.party[0] <= ready.length
+    && (!q.personal || ready.some((a) => a.id === q.personal))
+    && (!q.contract || state.gold >= q.contract.deposit));
   if (quest) {
+    if (quest.contract) tally.contracts += 1;
+    if (quest.personal) tally.personal += 1;
+    const order = quest.personal ? [ready.find((a) => a.id === quest.personal), ...ready.filter((a) => a.id !== quest.personal)] : ready;
     if (quest.expedition) tally.expeditions += 1;
     const packed = {};
     for (const k of recommendedSupplies(quest)) if (state.supplies[k]) packed[k] = 1;
     if (state.supplies.potion) packed.potion = 1;
-    const res = sendParty(state, quest.id, ready.slice(0, quest.party[1]).map((a) => a.id), packed, now);
+    const res = sendParty(state, quest.id, order.slice(0, quest.party[1]).map((a) => a.id), packed, now);
     check(res.ok, `send ok: ${res.reason || ''}`);
     const p = res.pending;
     firstLengths.push(quest.duration);
@@ -60,11 +77,15 @@ for (let loop = 0; loop < 80; loop++) {
     check(rec && rec.result.encounters.filter((e) => !e.dispatch).length >= 1, 'report has encounters');
     check(rec.result.encounters.filter((e) => e.dispatch).length === p.dispatches.length, 'report shows every dispatch');
     tally.events += rec.events.length;
+    tally.injuries += rec.injuries.length;
+    tally.renownLost += rec.renownLost;
+    tally.rankUps += rec.rankUps.length;
+    if (rec.personal && rec.events.some((e) => e.includes('earned a legacy'))) tally.legacies += 1;
   } else {
     now += 60 * MIN;
   }
   if (state.gold > 120) buySupply(state, 'potion', now);
-  if (state.gold >= 60 && state.roster.length < 8) {
+  if (state.gold >= 60 && state.roster.length < rosterCap(state)) {
     refreshBar(state, now);
     const r = state.bar.recruits.find((x) => x.rarity === 'common' || x.rarity === 'uncommon');
     if (r) hire(state, r.id, now);
@@ -74,11 +95,46 @@ for (let loop = 0; loop < 80; loop++) {
 console.log(`Loop: ${state.stats.questsDone} quests, ${state.gold} gold, ${state.renown} renown, roster ${state.roster.length}, levels ${state.roster.map((a) => a.level).join('/')}`);
 console.log(`      ${tally.dispatches} dispatches (${tally.answered} answered), ${tally.scenes} scenes, ${tally.talents} talents, ${tally.expeditions} expeditions, ${tally.events} bond/goal events, ${Object.keys(state.bonds).length} bonds`);
 check(tally.dispatches > 0 && tally.scenes > 0 && tally.talents > 0, 'new systems all fired');
+console.log(`      ${tally.stories} story beats, ${tally.personal} personal quests (${tally.legacies} legacies), ${tally.injuries} injuries, ${tally.contracts} contracts, -${tally.renownLost} renown lost, ${tally.rankUps} rank-ups (rank ${state.tavern.rank + 1}), ${tally.paydays} payday events, ${tally.built} rooms built`);
+check(tally.stories > 0 && tally.personal > 0 && tally.rankUps > 0, 'progression fired');
+
+// 1b. Penalties on a hopeless job: injuries, fatigue, renown loss, lost deposit
+{
+  const t0 = new Date(2026, 9, 5, 9, 0).getTime();
+  const s2 = newGame(4242, t0);
+  startingParty(s2, t0);
+  s2.renown = 30; s2.tavern.rank = 1; s2.gold = 500;
+  const hard = generateQuest(new Rng(99), 3, 'hard', { contract: true });
+  hard.party = [2, 3];
+  s2.board.quests.push(hard);
+  const res = sendParty(s2, 'hard', s2.roster.map((a) => a.id), {}, t0);
+  check(res.ok && s2.gold === 500 - hard.contract.deposit, 'contract deposit taken at send');
+  const rec = collectQuest(s2, res.pending.id, res.pending.endAt + 1);
+  const bad = !['triumph', 'success', 'costly'].includes(rec.result.outcome);
+  console.log(`      hopeless job: ${rec.result.outcome}, ${rec.injuries.length} injuries, -${rec.renownLost} renown, fatigue ${s2.roster.map((a) => a.fatigue).join('/')}`);
+  check(s2.roster.every((a) => a.fatigue === 1), 'quest adds fatigue');
+  if (bad) {
+    check(rec.renownLost > 0 || s2.renown === 15, 'failure costs renown (never below the rank floor)');
+    check(rec.events.some((e) => e.includes('deposit is lost')), 'failed contract loses its deposit');
+  }
+  if (rec.result.downed.length) check(rec.injuries.length >= rec.result.downed.length, 'everyone who fell is injured');
+  const hurt = s2.roster.find((a) => a.injuries.length);
+  if (hurt) {
+    check(applyRecovery(hurt, hurt.injuries[0].healAt + 1) && !hurt.injuries.some((i) => i.healAt <= hurt.injuries[0]?.healAt - 1), 'injuries heal with time');
+  }
+  const owed = s2.roster.length;
+  processPaydays(s2, t0);
+  s2.gold = 0;
+  const ev = processPaydays(s2, t0 + 10 * 86400000);
+  check(ev.some((e) => e.includes('short')), 'an empty chest misses payday');
+  check(ev.filter((e) => e.startsWith('Payday')).length <= 2, 'time away charges at most 2 paydays');
+  check(s2.roster.length <= owed, 'unpaid wages handled');
+}
 console.log(`      quest lengths sent, in minutes: ${firstLengths.slice(0, 24).join(' ')}`);
 
 // 2. Save round trip
 const copy = importSave(exportSave(state));
-check(copy.roster.length === state.roster.length && copy.version === 2, 'save round-trips');
+check(copy.roster.length === state.roster.length && copy.version === 3, 'save round-trips');
 
 // 3. Migration from a version 1 save
 const v1 = JSON.parse(JSON.stringify(state));
@@ -86,7 +142,7 @@ v1.version = 1;
 delete v1.supplies; delete v1.bonds; delete v1.scenes;
 for (const a of v1.roster) { delete a.talents; delete a.pendingTalents; delete a.loyalty; delete a.buffs; delete a.goal; }
 const migrated = importSave(exportSave(v1));
-check(migrated.version === 2 && migrated.supplies && migrated.roster.every((a) => Array.isArray(a.talents)), 'v1 save migrates');
+check(migrated.version === 3 && migrated.tavern && migrated.supplies && migrated.roster.every((a) => Array.isArray(a.talents)), 'v1 save migrates');
 for (const a of migrated.roster) if (!a.goal) assignGoal(a);
 check(migrated.roster.every((a) => a.goal), 'migrated adventurers get goals');
 

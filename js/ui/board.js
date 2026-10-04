@@ -5,9 +5,11 @@ import { adventurerCard, statusOf } from './card.js';
 import { questChecks, unlockedTiers, recommendedSupplies, nextPostingAt } from '../quests.js';
 import { activeConditions } from '../resolve.js';
 import { partyBonuses, partyPairs } from '../bonds.js';
+import { tavernMods } from '../tavern.js';
 import { TIER_NAMES } from '../../data/quests.js';
 import { CONDITIONS, SUPPLIES } from '../../data/supplies.js';
-import { TIER_RENOWN } from '../config.js';
+import { RANKS } from '../../data/tavern.js';
+import { RENOWN_LOSS } from '../../data/penalties.js';
 import * as A from '../adventurers.js';
 
 function passChance(bonus, dc, mode) {
@@ -34,8 +36,9 @@ export function conditionChips(quest, packed = null) {
   });
 }
 
-export function questCard(quest, { onChoose } = {}) {
-  return h('article', { class: `quest-card${quest.expedition ? ' expedition' : ''}` },
+export function questCard(quest, { onChoose, hero } = {}) {
+  return h('article', { class: `quest-card${quest.expedition ? ' expedition' : ''}${quest.personal ? ' personal' : ''}` },
+    quest.personal ? h('div', { class: 'personal-tag' }, `Personal quest${hero ? ` for ${hero.name}` : ''}`) : null,
     h('div', { class: 'quest-head' }, h('h3', null, quest.title), tierBadge(quest)),
     h('p', { class: 'quest-blurb' }, quest.blurb),
     h('div', { class: 'quest-meta' },
@@ -45,9 +48,12 @@ export function questCard(quest, { onChoose } = {}) {
       h('span', null, `${quest.xp} XP each`)),
     h('div', { class: 'chips' },
       questChecks(quest).map((c) => h('span', { class: `chip check ${c.kind}` }, c.label)),
-      conditionChips(quest)),
+      conditionChips(quest),
+      quest.contract ? h('span', { class: 'chip contract', title: 'Paid up front, returned if the job succeeds' }, `Contract: ${quest.contract.deposit} gold deposit`) : null),
+    h('p', { class: 'risk small' }, `Failure costs ${RENOWN_LOSS.failure * quest.tier} renown, disaster ${RENOWN_LOSS.disaster * quest.tier}.`),
     h('div', { class: 'quest-foot' },
-      h('span', { class: 'muted small' }, 'Leaves the board in ', countdown(quest.expiresAt, 'moments')),
+      quest.personal ? h('span', { class: 'muted small' }, 'Stays up until done')
+        : h('span', { class: 'muted small' }, 'Leaves the board in ', countdown(quest.expiresAt, 'moments')),
       onChoose ? h('button', { class: 'btn primary', onclick: onChoose }, 'Choose a party') : null));
 }
 
@@ -61,7 +67,7 @@ export function renderBoard(ctx) {
   root.append(section('Quest board', null,
     h('p', { class: 'muted board-note' },
       next ? ['Next posting in ', countdown(next, 'a moment'), '. '] : null,
-      nextTier ? `${TIER_NAMES[nextTier]} jobs unlock at ${TIER_RENOWN[nextTier - 1]} renown.` : '')));
+      nextTier ? `${TIER_NAMES[nextTier]} jobs appear once the tavern is a ${RANKS.find((r) => r.tier >= nextTier).name.toLowerCase()}.` : '')));
 
   if (!state.board.quests.length) {
     root.append(h('div', { class: 'empty panel' },
@@ -69,13 +75,13 @@ export function renderBoard(ctx) {
       h('p', { class: 'muted' }, 'Every posting has been taken. New notices go up through the day.')));
   }
   root.append(h('div', { class: 'list two' }, state.board.quests.map((q) =>
-    questCard(q, { onChoose: () => openPartyPicker(ctx, q) }))));
+    questCard(q, { onChoose: () => openPartyPicker(ctx, q), hero: q.personal ? state.roster.find((a) => a.id === q.personal) : null }))));
   return root;
 }
 
 // Roll modifier the picker can predict for one check (bonds, buffs, uncountered conditions).
-function previewMod(c, a, conds, bonus) {
-  let mod = bonus[a.id] || 0;
+function previewMod(c, a, conds, bonus, tavernSkill) {
+  let mod = (bonus[a.id] || 0) + (c.skill ? tavernSkill : 0);
   for (const k of conds) {
     if (k.rollMod) mod += k.rollMod;
     if (c.skill && k.skillMods && k.skillMods[c.skill]) mod += k.skillMods[c.skill];
@@ -88,6 +94,8 @@ function openPartyPicker(ctx, quest) {
   const { state } = ctx;
   const chosen = [];
   const packed = {};
+  const lead = quest.personal ? state.roster.find((a) => a.id === quest.personal) : null;
+  if (lead && A.isAvailable(lead)) chosen.push(lead.id);
   for (const k of recommendedSupplies(quest)) if (state.supplies[k] && k !== 'rope') packed[k] = 1;
   const body = h('div', { class: 'picker' });
   const close = openSheet(body, { title: quest.title, wide: true });
@@ -133,7 +141,7 @@ function openPartyPicker(ctx, quest) {
         const f = A.rollFactors(a, tags);
         if (packed.rope && (tags.includes('heights') || tags.includes('water'))) f.plus.push('rope');
         const { mode } = A.modeOf(f.plus, f.minus);
-        return { a, p: passChance(A.checkBonus(a, c.skill, c.rawAbility) + previewMod(c, a, conds, bonus), c.dc, mode) };
+        return { a, p: passChance(A.checkBonus(a, c.skill, c.rawAbility) + previewMod(c, a, conds, bonus, tavernMods(state).skill), c.dc, mode) };
       }).sort((x, y) => y.p - x.p);
       if (c.kind === 'group') {
         const avg = best.reduce((s, b) => s + b.p, 0) / best.length;
@@ -160,6 +168,7 @@ function openPartyPicker(ctx, quest) {
         dim: !avail,
         onClick: () => {
           if (!avail) { toast(`${a.name.split(' ')[0]} is ${statusOf(a, now).text.toLowerCase()}.`); return; }
+          if (lead && a.id === lead.id) { toast(`It is ${a.name.split(' ')[0]}'s quest: ${a.name.split(' ')[0]} goes.`); return; }
           if (sel) chosen.splice(chosen.indexOf(a.id), 1);
           else if (chosen.length < max) chosen.push(a.id);
           else { toast(`This job takes at most ${max}.`); return; }
@@ -168,7 +177,9 @@ function openPartyPicker(ctx, quest) {
       });
     })));
 
-    const ok = chosen.length >= min && chosen.length <= max;
+    const leadOk = !lead || chosen.includes(lead.id);
+    const depositOk = !quest.contract || state.gold >= quest.contract.deposit;
+    const ok = chosen.length >= min && chosen.length <= max && leadOk && depositOk;
     body.append(h('div', { class: 'sheet-actions' },
       h('button', {
         class: 'btn primary block',
@@ -179,7 +190,10 @@ function openPartyPicker(ctx, quest) {
           if (res.ok) close();
           else toast(res.reason);
         },
-      }, ok ? `Send ${chosen.length} for ${fmtSpan(quest.duration)}` : `Choose ${min === max ? min : `at least ${min}`}`)));
+      }, !leadOk ? `${lead.name.split(' ')[0]} must be rested to go`
+        : !depositOk ? `Needs ${quest.contract.deposit} gold for the deposit`
+          : ok ? `Send ${chosen.length} for ${fmtSpan(quest.duration)}${quest.contract ? ` · pay ${quest.contract.deposit} deposit` : ''}`
+            : `Choose ${min === max ? min : `at least ${min}`}`)));
   };
   draw();
 }

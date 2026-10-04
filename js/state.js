@@ -3,7 +3,7 @@ import { START_GOLD, START_LOYALTY } from './config.js';
 import { STARTING_SUPPLIES } from '../data/supplies.js';
 
 export const SAVE_KEY = 'wayfarers-tavern-save';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export function newGame(seed, now = Date.now()) {
   return {
@@ -21,6 +21,8 @@ export function newGame(seed, now = Date.now()) {
     supplies: { ...STARTING_SUPPLIES },
     bonds: {},        // 'a1|a2' -> number
     scenes: { slot: null, list: [] },
+    tavern: { rank: 0, upgrades: {}, aleAt: null, paydayAt: null },
+    flags: {},
     log: [],          // { at, text }, newest first
     stats: { questsSent: 0, questsDone: 0, triumphs: 0, goldEarned: 0 },
     settings: {},
@@ -42,6 +44,20 @@ const MIGRATIONS = {
       a.buffs = a.buffs || [];
       a.goal = a.goal || null; // assigned on load
       a.goalsDone = a.goalsDone || 0;
+    }
+    return s;
+  },
+  // v2 -> v3: tavern rank and rooms, fatigue, injuries, story arcs (assigned on load)
+  2: (s) => {
+    const ranks = [0, 15, 45, 100, 200];
+    s.tavern = { rank: ranks.filter((r) => s.renown >= r).length - 1, upgrades: {}, aleAt: null, paydayAt: null };
+    s.flags = s.flags || {};
+    for (const a of s.roster) {
+      a.fatigue = 0;
+      a.fatigueAt = null;
+      a.injuries = [];
+      a.arc = a.arc || null;
+      a.legacy = a.legacy || null;
     }
     return s;
   },

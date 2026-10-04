@@ -22,6 +22,10 @@ function situational(ctx, m, { skill, ability, attack }) {
     if (attack && c.attackMod) add(c.attackMod, c.short);
     if (c.fatigue && ctx.index >= ctx.half) add(c.fatigue, c.short);
   }
+  const tv = ctx.tavern;
+  if (attack && tv.attack) add(tv.attack, 'armory');
+  if (!attack && skill && tv.skill) add(tv.skill, 'maps');
+  if (ctx.isFinale && tv.finale) add(tv.finale, 'chapel');
   for (const pm of ctx.partyMods) {
     const on = pm.finale ? ctx.isFinale : ctx.index >= pm.from && (pm.until == null || ctx.index <= pm.until);
     if (on) add(pm.mod, pm.label);
@@ -221,7 +225,7 @@ export function combat(ctx, enc, def, alive) {
       const targets = ctx.sim.filter((s) => s.hp > 0);
       if (!targets.length) break;
       const t = ctx.rng.pick(targets);
-      const ac = A.armorClass(t.a);
+      const ac = A.armorClass(t.a) + (ctx.tavern.ac || 0);
       const d = ctx.rng.d(20);
       const pass = d === 20 || (d !== 1 && d + mon.atk >= ac);
       const er = {

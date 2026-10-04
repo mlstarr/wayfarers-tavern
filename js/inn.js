@@ -1,6 +1,8 @@
-// The inn: recruits at the bar, hiring and dismissing. (Rooms and upgrades arrive in M3.)
+// Recruits at the bar, hiring and dismissing, and the quartermaster. Rooms live in js/tavern.js.
 import { Rng, seedFrom } from './rng.js';
-import { BAR_SIZE, ROSTER_CAP } from './config.js';
+import { BAR_SIZE } from './config.js';
+import { rosterCap } from './tavern.js';
+import { assignArc } from './stories.js';
 import { generateAdventurer, addHistory, fullName } from './adventurers.js';
 import { nextId, addLog } from './state.js';
 import { SUPPLIES } from '../data/supplies.js';
@@ -33,7 +35,7 @@ export function refreshBar(state, now) {
 }
 
 export function hireProblem(state, adv) {
-  if (state.roster.length >= ROSTER_CAP) return 'Roster is full';
+  if (state.roster.length >= rosterCap(state)) return 'No free beds';
   if (state.gold < HIRE_COST[adv.rarity]) return 'Not enough gold';
   return null;
 }
@@ -48,6 +50,7 @@ export function hire(state, recruitId, now) {
   adv.id = nextId(state, 'a');
   adv.recruitedAt = now;
   addHistory(adv, 'Signed on at the Wayfarer\'s Tavern.', now);
+  assignArc(state, adv);
   state.roster.push(adv);
   addLog(state, `${fullName(adv)} joined the company.`, now);
   return { ok: true, adv };
@@ -70,6 +73,7 @@ export function startingParty(state, now) {
     adv.id = nextId(state, 'a');
     adv.recruitedAt = now;
     addHistory(adv, 'One of the tavern\'s first regulars.', now);
+    assignArc(state, adv);
     state.roster.push(adv);
   }
 }

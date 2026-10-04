@@ -89,3 +89,51 @@
 .events li { margin: 4px 0; }
 .card .hire { font-size: 14px; min-height: 38px; padding: 7px 10px; white-space: nowrap; }
 .card .hire .icon { width: 16px; height: 16px; }
+
+/* Tavern rank, upkeep, stories, rooms, penalties */
+.tabs { grid-template-columns: repeat(5, 1fr); }
+.tab { font-size: 11px; letter-spacing: .04em; }
+@media (min-width: 1100px) { .tabs { width: 620px; } }
+.home-head { display: grid; gap: 8px; margin: 14px 0 6px; }
+@media (min-width: 760px) { .home-head { grid-template-columns: 1fr 1fr; align-items: stretch; } }
+.rank-panel { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+.rank-top { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.rank-badge { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; background: var(--goldc); color: #3a2a12; padding: 2px 8px; border-radius: 999px; }
+.rank-name { font-family: var(--display); font-size: 17px; color: var(--parch2); }
+.rankbar { height: 8px; background: #3a2a1d; border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+.rankbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--ember), var(--goldc)); }
+.upkeep { display: flex; flex-direction: column; justify-content: center; gap: 2px; font-size: 14px; background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 14px; }
+.upkeep.short { border-color: var(--bad); color: #f2b8ab; }
+.story-card { background: linear-gradient(160deg, #2c2134, #1f1726); border: 1px solid #6e4f86; border-radius: var(--r); padding: 14px; }
+.story-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.story-head .mini-shield { width: 40px; height: 40px; }
+.story-text { font-size: 16px; color: #ece0f2; font-style: italic; }
+.option:disabled { opacity: .5; cursor: not-allowed; }
+.cost.dark { color: #8a5a10; }
+.goal.story { background: rgba(145,82,196,.1); border-color: rgba(145,82,196,.45); }
+.chip.injury { background: #f0c9bf; color: #7a2418; font-weight: 700; }
+.chip.tired { background: #d9d2c4; color: #4a4036; }
+.chip.contract { background: #3a2a12; color: var(--goldc); }
+.risk { color: var(--ink2); margin: 8px 0 0; font-size: 13px; }
+.quest-card.personal { box-shadow: 0 0 0 2px #9152c4, 0 8px 22px rgba(0,0,0,.45); }
+.personal-tag { display: inline-block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; background: #9152c4; color: #fff; padding: 2px 9px; border-radius: 999px; margin-bottom: 8px; }
+.room { display: flex; flex-direction: column; gap: 4px; }
+.room.built { border-color: #6e4a25; }
+.room-head { display: flex; justify-content: space-between; align-items: center; }
+.room-head b { font-family: var(--display); font-size: 16px; color: var(--parch2); }
+.pips { display: inline-flex; gap: 4px; }
+.pips i { width: 10px; height: 10px; border-radius: 3px; background: #3a2a1d; border: 1px solid var(--line); }
+.pips i.on { background: var(--goldc); border-color: var(--goldc); }
+.room-now { color: #c6e3bf; font-size: 14px; margin: 0; }
+.room-next { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 14px; margin-top: 4px; }
+.room-next .btn { flex: none; }
+.ladder { padding-left: 20px; margin: 0; }
+.ladder li { margin: 6px 0; color: var(--text2); }
+.ladder li.reached b { color: var(--goldc); }
+.rankup { text-align: center; }
+.rankup-art { color: var(--goldc); margin: 6px 0 10px; }
+.rankup-art .icon { width: 56px; height: 56px; }
+.rankup h2 { color: var(--goldc); margin-bottom: 10px; }
+.penalty { color: #f2a99a; font-weight: 700; margin: 8px 0 0; }
+.injuries { list-style: none; padding: 0; margin: 10px 0 0; color: #f2b8ab; text-align: left; }
+.injuries li { margin: 4px 0; }

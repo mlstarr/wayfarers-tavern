@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-04 (early-game pacing ramp)
+Last updated: 2026-10-04 (stories, tavern progression, penalties)
 
 ## Built
 **M1 core loop**
@@ -26,6 +26,12 @@ Last updated: 2026-10-04 (early-game pacing ramp)
 - The first scene is guaranteed right after the first report.
 - Measured in a browser without `?fast`: first messenger at 22 s, party back at 31 s.
 
+**Stories, tavern progression and penalties** (save v3)
+- **Story arcs** (`data/arcs.js`, `js/stories.js`): 8 arcs. Each hero gets one (biased to background, no duplicates): an introduction right away, parts 1 to 3 after 1, 3 and 5 quests, then a personal quest posted on the board that the hero must lead. Success grants a legacy trait, an epithet and fulfils the current goal; failure re-posts it and costs loyalty. Story text uses singular "they" for heroes.
+- **Tavern rank** (`data/tavern.js`, `js/tavern.js`): renown sets rank (5 ranks); each rank gives gold, beds and harder quest tiers. Renown lost to failure never drops below the current rank.
+- **Rooms** (Rooms tab): taproom (ale income while away, 8 h cap), bunkhouse, infirmary, kitchen, armory, map room, training yard, chapel. Bonuses are snapshotted into each quest at send.
+- **Penalties** (`data/penalties.js`): heroes who fall get a lasting injury (healed by time or the herbalist); disasters may injure others. Fatigue +1 per quest (+2 expedition): tired -1, exhausted -2, fades with rest. Failure and disaster cost renown by tier. Daily wages at local midnight, at most 2 missed paydays charged; an empty chest costs everyone loyalty and heroes at 0 quit (never while questing). Contracts: deposit up front, 1.8x pay, deposit lost on failure.
+
 ## How to test
 - `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, and prints the balance table.
 - Open with `?fast` so game-minutes pass in seconds.
@@ -36,7 +42,7 @@ Last updated: 2026-10-04 (early-game pacing ramp)
 - Pronouns are rolled but text avoids them.
 - `systems.css` holds styles for the depth update; `style.css` the base.
 
-## Next (M2 remainder)
+## Next
 1. Death with risk shown upfront; Hall of Heroes; Casual mode at new game.
 2. Injuries and scars as lasting traits.
 3. More dispatch, scene and goal content (cheap: data files only).

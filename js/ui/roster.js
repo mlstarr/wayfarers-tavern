@@ -1,7 +1,7 @@
 // The roster: every adventurer on the books.
 import { h, section, openSheet, toast } from './dom.js';
 import { adventurerCard, adventurerDetail } from './card.js';
-import { ROSTER_CAP } from '../config.js';
+import { rosterCap } from '../tavern.js';
 import { fullName } from '../adventurers.js';
 
 export function renderRoster(ctx) {
@@ -12,7 +12,7 @@ export function renderRoster(ctx) {
     (b.pendingTalents || []).length - (a.pendingTalents || []).length || order[a.status] - order[b.status] || b.level - a.level);
   const leveling = state.roster.filter((a) => (a.pendingTalents || []).length);
   return h('div', { class: 'screen roster' },
-    section('Roster', `${state.roster.length} of ${ROSTER_CAP} beds`,
+    section('Roster', `${state.roster.length} of ${rosterCap(state)} beds`,
       leveling.length ? h('p', { class: 'notice' },
         `${leveling.map((a) => a.name.split(' ')[0]).join(', ')} leveled up. Tap to choose a talent.`) : null,
       h('div', { class: 'grid' }, list.map((a) => adventurerCard(a, { now, onClick: () => openDetail(ctx, a.id) })))));
@@ -38,6 +38,8 @@ export function openDetail(ctx, advId) {
   close = openSheet(adventurerDetail(adv, {
     actions,
     state: ctx.state,
+    herbCost: ctx.herbalistCost(),
+    onHeal: (injuryId) => { if (ctx.herbalist(adv.id, injuryId)) { close(); openDetail(ctx, adv.id); } },
     onChooseTalent: (i) => {
       const t = ctx.chooseTalent(adv.id, i);
       if (t) {

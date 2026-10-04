@@ -39,7 +39,7 @@ export function resolveQuest(quest, party, seed, opts = {}) {
   const conds = activeConditions(quest, packed);
   const extraTags = conds.flatMap((c) => c.addTags || []);
   const ctx = {
-    rng, quest, sim, tier: quest.tier, packed, conds,
+    rng, quest, sim, tier: quest.tier, packed, conds, tavern: opts.tavern || {},
     bonus: opts.bonus || {}, bonusNotes: opts.bonusNotes || {},
     bonusGold: 0, goldLoss: 0, goldMult: 0, goldFlat: 0, xpMult: 0,
     nats: Object.fromEntries(sim.map((m) => [m.id, { n20: 0, n1: 0 }])),
@@ -109,7 +109,7 @@ export function resolveQuest(quest, party, seed, opts = {}) {
     outcomeLabel: T.OUTCOMES[outcome].label,
     headline: rng.pick(T.OUTCOMES[outcome].lines),
     gold,
-    xp: Math.round(quest.xp * m.xp * Math.max(0.2, 1 + ctx.xpMult)),
+    xp: Math.round(quest.xp * m.xp * Math.max(0.2, 1 + ctx.xpMult + (ctx.tavern.xp || 0))),
     renown: quest.tier * m.renown,
     hp: Object.fromEntries(sim.map((s) => [s.id, s.hp])),
     downed,
@@ -202,6 +202,15 @@ function recover(ctx) {
       const n = Math.min(s.a.maxHp - s.hp, rollDice(ctx.rng, '2d4+2'));
       s.hp += Math.max(1, n);
       lines.push(`${s.name} drank a healing potion (+${Math.max(1, n)} HP).`);
+    }
+  }
+  if (ctx.tavern.heal && !ctx.chapelUsed) {
+    const s = ctx.sim.filter(low).sort((a, b) => a.hp - b.hp)[0];
+    if (s) {
+      ctx.chapelUsed = true;
+      const n = Math.max(1, Math.min(s.a.maxHp - s.hp, rollDice(ctx.rng, '2d6')));
+      s.hp += n;
+      lines.push(`${s.name} touched the chapel charm and felt the blessing (+${n} HP).`);
     }
   }
   for (const m of ctx.sim) {

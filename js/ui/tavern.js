@@ -5,6 +5,34 @@ import { miniShield } from './card.js';
 import { isReturned } from '../quests.js';
 import { openDispatches, describeDispatch } from '../dispatch.js';
 import { liveScenes, describeScene } from '../scenes.js';
+import { readyStories, describeStory } from '../stories.js';
+import { wagesDue, nextPaydayAt, tavernMods } from '../tavern.js';
+import { rankPanel } from './rooms.js';
+
+function storyCard(ctx, adv) {
+  const info = describeStory(adv);
+  return h('article', { class: 'story-card' },
+    h('div', { class: 'story-head' },
+      miniShield(adv),
+      h('span', { class: 'dispatch-title' },
+        h('b', null, info.title),
+        h('span', { class: 'muted small' }, `${adv.name} · ${info.part}`))),
+    h('p', { class: 'story-text' }, info.text),
+    h('div', { class: 'options' }, info.choices.map((c) => h('button', {
+      class: 'option',
+      disabled: c.cost && ctx.state.gold < c.cost ? true : null,
+      onclick: () => ctx.story(adv.id, c.index),
+    }, h('b', null, c.label, c.cost ? h('span', { class: 'cost dark', html: `${icon('coin')}${c.cost}` }) : null)))));
+}
+
+function upkeepLine(state, now) {
+  const due = wagesDue(state);
+  const short = state.gold < due;
+  const ale = tavernMods(state).ale;
+  return h('div', { class: `upkeep${short ? ' short' : ''}` },
+    h('span', null, 'Payday in ', countdown(nextPaydayAt(now), 'now'), `: ${due} gold in wages`, short ? '. The chest is short.' : '.'),
+    ale ? h('span', { class: 'muted' }, `Taproom: ${ale} gold an hour.`) : null);
+}
 
 function dispatchCard(ctx, p, d) {
   const info = describeDispatch(d);
@@ -42,7 +70,9 @@ export function renderTavern(ctx) {
   const messages = openDispatches(state, now);
   const scenes = liveScenes(state);
 
+  const stories = readyStories(state);
   const root = h('div', { class: 'screen tavern' });
+  root.append(h('div', { class: 'home-head' }, rankPanel(state, { compact: true }), upkeepLine(state, now)));
 
   if (messages.length) {
     root.append(section('Word from the road', null,
@@ -81,12 +111,17 @@ export function renderTavern(ctx) {
       }))));
   }
 
+  if (stories.length) {
+    root.append(section('Stories', null,
+      h('div', { class: 'list two' }, stories.map((a) => storyCard(ctx, a)))));
+  }
+
   if (scenes.length) {
     root.append(section('In the common room', null,
       h('div', { class: 'list two' }, scenes.map((s) => sceneCard(ctx, s)))));
   }
 
-  if (!back.length && !out.length && !messages.length) {
+  if (!back.length && !out.length && !messages.length && !stories.length) {
     root.append(h('div', { class: 'empty panel' },
       h('div', { class: 'empty-art', html: icon('tavern') }),
       h('h2', null, 'The tables are quiet'),

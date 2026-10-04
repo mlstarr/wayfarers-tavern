@@ -3,7 +3,9 @@ import { newGame, load, save, importSave, addLog } from './state.js';
 import { newSeed } from './rng.js';
 import { refreshBoard, sendParty, collectQuest, isReturned } from './quests.js';
 import { refreshBar, hire, dismiss, startingParty, buySupply } from './inn.js';
-import { applyRest, fullName, setRestPace } from './adventurers.js';
+import { applyRest, applyRecovery, fullName, setRecoveryPace } from './adventurers.js';
+import { tavernMods, collectAle, processPaydays, checkRankUp, buyUpgrade } from './tavern.js';
+import { assignArc, playStory } from './stories.js';
 import { paceOf } from './pace.js';
 import { openDispatches, answerDispatch } from './dispatch.js';
 import { refreshScenes, liveScenes, resolveScene } from './scenes.js';
@@ -15,6 +17,10 @@ import { renderTavern } from './ui/tavern.js';
 import { renderBoard } from './ui/board.js';
 import { renderRoster } from './ui/roster.js';
 import { renderBar } from './ui/bar.js';
+import { renderRooms, showRankUp } from './ui/rooms.js';
+import { healInjury } from './adventurers.js';
+import { HERBALIST_COST } from '../data/penalties.js';
+import { readyStories } from './stories.js';
 import { openReport } from './ui/report.js';
 import { openSettings } from './ui/settings.js';
 import { adventurerDetail } from './ui/card.js';
@@ -25,6 +31,7 @@ const TABS = [
   { id: 'board', label: 'Quests', render: renderBoard },
   { id: 'roster', label: 'Roster', render: renderRoster },
   { id: 'bar', label: 'Bar', render: renderBar },
+  { id: 'rooms', label: 'Rooms', render: renderRooms },
 ];
 
 let state;
@@ -45,6 +52,7 @@ function alerts(now = Date.now()) {
     messages: openDispatches(state, now).length,
     scenes: liveScenes(state).length,
     talents: state.roster.filter((a) => (a.pendingTalents || []).length).length,
+    stories: readyStories(state).length,
   };
 }
 
@@ -52,13 +60,19 @@ function alerts(now = Date.now()) {
 function maintenance() {
   const now = Date.now();
   const pace = paceOf(state);
-  setRestPace(pace.scale);
+  const tv = tavernMods(state);
+  setRecoveryPace(pace.scale / tv.healSpeed, tv.fatigueSpeed);
   let changed = refreshBoard(state, now);
+  if (collectAle(state, now)) changed = true;
+  const paid = processPaydays(state, now);
+  if (paid.length) { changed = true; for (const e of paid) toast(e); }
   changed = refreshBar(state, now) || changed;
   changed = refreshScenes(state, now, pace.scale) || changed;
   for (const a of state.roster) {
     changed = applyRest(a, now) || changed;
+    changed = applyRecovery(a, now) || changed;
     if (!a.goal) { assignGoal(a); changed = true; }
+    if (!a.arc) { assignArc(state, a); changed = true; }
   }
   const sig = JSON.stringify(alerts(now));
   if (sig !== lastAlerts) { lastAlerts = sig; changed = true; }
@@ -105,6 +119,36 @@ const ctx = {
     if (!record) return;
     commit();
     openReport(record);
+    if (record.rankUps && record.rankUps.length) setTimeout(() => showRankUp(record.rankUps), 400);
+  },
+  story(advId, index) {
+    const out = playStory(state, advId, index, Date.now());
+    if (out.error) { toast(out.error); return; }
+    const ups = checkRankUp(state, Date.now());
+    commit();
+    openSheet(h('div', { class: 'scene-result' },
+      h('p', { class: 'enc-line' }, out.text),
+      out.notes.map((t) => h('p', { class: 'muted' }, t)),
+      out.quest ? h('p', { class: 'notice' }, `A personal quest is on the board: ${out.quest.title}.`) : null),
+    { title: 'A story continues' });
+    if (ups.length) setTimeout(() => showRankUp(ups), 400);
+  },
+  build(id) {
+    const res = buyUpgrade(state, id, Date.now());
+    if (res.ok) { toast(`${res.name} built (level ${res.level}).`); commit(); } else toast(res.reason);
+  },
+  herbalist(advId, injuryId) {
+    const adv = state.roster.find((a) => a.id === advId);
+    const cost = tavernMods(state).cheapHerbs ? Math.ceil(HERBALIST_COST / 2) : HERBALIST_COST;
+    if (!adv || state.gold < cost) { toast('Not enough gold'); return false; }
+    state.gold -= cost;
+    healInjury(adv, injuryId);
+    commit();
+    toast(`The herbalist patched ${adv.name.split(' ')[0]} up for ${cost} gold.`);
+    return true;
+  },
+  herbalistCost() {
+    return tavernMods(state).cheapHerbs ? Math.ceil(HERBALIST_COST / 2) : HERBALIST_COST;
   },
   openArchived(id) {
     const record = state.reports.find((r) => r.id === id);
@@ -150,7 +194,7 @@ function renderChrome() {
   const al = alerts();
   document.getElementById('purse').innerHTML =
     `<span class="gold" title="Gold">${icon('coin')}${state.gold}</span><span class="renown" title="Renown">${icon('renown')}${state.renown}</span>`;
-  const dots = { tavern: al.ready + al.messages, roster: al.talents };
+  const dots = { tavern: al.ready + al.messages + al.stories, roster: al.talents };
   const nav = document.getElementById('tabs');
   nav.replaceChildren(...TABS.map((t) => {
     const b = document.createElement('button');
