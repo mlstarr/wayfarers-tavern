@@ -1,0 +1,123 @@
+/* Tales, the Hall and collections. Loaded after systems.css. */
+
+/* ---- Quest tales ---- */
+.report-body.tale { --paper: #f4ead2; --paper-ink: #2e2116; }
+.tale-cover { padding: 4px 0 14px; }
+.tale-scene, .tale-letter, .tally-card {
+  border-radius: 6px 6px 14px 14px; padding: 16px 18px; margin: 0 0 12px;
+}
+.tale-scene { background: var(--paper); color: var(--paper-ink); box-shadow: 0 6px 18px rgba(0,0,0,.3); }
+.tale-p { font-family: Georgia, 'Times New Roman', serif; font-size: 17px; line-height: 1.62; margin: 0 0 10px; }
+.tale-p .speech, .tale-intro .speech, .letter-p .speech { color: #6b2c14; }
+.tale-travel { font-family: Georgia, serif; font-style: italic; font-size: 15.5px; line-height: 1.55; color: #6a5440; margin: 0 0 10px; padding-left: 12px; border-left: 2px solid #d4bf98; }
+.tale-intro { font-family: Georgia, serif; font-size: 17px; line-height: 1.6; margin: 0 0 8px; color: #3a2a1d; }
+.scene-title { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 6px 0 8px; padding-top: 8px; border-top: 1px solid rgba(106,84,64,.25); }
+.tale-scene > .scene-title:first-child { border-top: 0; padding-top: 0; margin-top: 0; }
+.scene-title b { font-family: var(--display); font-size: 15px; color: #5a3a7a; }
+.scene-mark { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #7a6450; }
+.scene-mark.ok { color: #2c5629; }
+.scene-mark.bad { color: #8a2a1c; }
+.tale-scene.epilogue .tale-p { font-style: italic; }
+.tale-dice { margin-top: 6px; }
+.tale-dice summary { cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #7a6450; font-weight: 700; }
+.tale-dice .icon { width: 16px; height: 16px; }
+.tale-dice .rolls { margin-top: 8px; }
+.tale-dice .roll { background: #2d2017; color: var(--text); }
+.tale-letter { background: linear-gradient(160deg, #3a2814, #261a10); border: 1px solid #a0722f; color: var(--text); }
+.letter-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; color: var(--goldc); }
+.letter-head b { flex: 1; font-family: var(--display); }
+.letter-head .icon { width: 18px; height: 18px; }
+.letter-p { font-family: Georgia, serif; font-size: 16px; line-height: 1.55; margin: 0 0 8px; color: var(--parch2); }
+.tale-letter .tale-dice summary { color: var(--text2); }
+.tally-card { background: linear-gradient(135deg, #3a2614, #2a1c11); border: 1px solid #6e4a25; text-align: center; }
+.tally-card .outcome-label { margin-bottom: 4px; }
+.tally-card.o-triumph .outcome-label { color: var(--goldc); text-shadow: 0 0 18px rgba(228,179,78,.5); }
+.tally-card.o-success .outcome-label { color: #a9d39f; }
+.tally-card.o-costly .outcome-label { color: #ecc875; }
+.tally-card.o-failure .outcome-label, .tally-card.o-disaster .outcome-label { color: #f2a99a; }
+.report-body.playing .tale-scene, .report-body.playing .tale-letter, .report-body.playing .tally-card {
+  opacity: 0; animation: reveal .6s ease-out forwards; animation-delay: calc(var(--i) * 1.1s + .2s);
+}
+.loot-list { display: grid; gap: 8px; margin: 14px 0 4px; text-align: left; }
+.loot { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
+.loot > div { display: flex; flex-direction: column; gap: 2px; }
+.loot-icon { flex: none; color: var(--goldc); }
+.loot-icon .icon { width: 22px; height: 22px; }
+.loot.r-rare, .gear.r-rare, .slot.r-rare { border-color: var(--rare); }
+.loot.r-uncommon, .gear.r-uncommon, .slot.r-uncommon { border-color: var(--uncommon); }
+.loot.r-epic, .gear.r-epic, .slot.r-epic { border-color: var(--epic); box-shadow: 0 0 12px rgba(145,82,196,.25); }
+.loot.r-legendary, .gear.r-legendary, .slot.r-legendary { border-color: var(--legendary); box-shadow: 0 0 14px rgba(224,154,34,.35); }
+.rumor-loot { border-color: #6e4f86; background: rgba(145,82,196,.1); }
+.rumor-loot .loot-icon { color: #c9a8e0; }
+.legend-loot { border-color: var(--legendary); }
+.good-text { color: #a9d39f; }
+.gear-story { font-style: italic; color: var(--text2); }
+
+/* ---- The Hall ---- */
+.segments { display: flex; gap: 6px; overflow-x: auto; padding: 14px 0 2px; margin: 0 -16px; padding-left: 16px; padding-right: 16px; scrollbar-width: none; }
+.segments::-webkit-scrollbar { display: none; }
+.segment { appearance: none; cursor: pointer; flex: none; border: 1px solid var(--line); background: var(--bg2); color: var(--text2); border-radius: 999px; padding: 8px 14px; font: inherit; font-weight: 700; font-size: 14px; }
+.segment.on { background: var(--goldc); border-color: var(--goldc); color: #3a2a12; }
+.prestige { display: flex; flex-direction: column; gap: 6px; }
+.prestige-num { display: flex; align-items: center; gap: 8px; color: var(--goldc); }
+.prestige-num b { font-family: var(--display); font-size: 28px; }
+.prestige-num .icon { width: 26px; height: 26px; }
+.trophy-set { margin: 0 0 22px; }
+.set-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.set-head b { font-family: var(--display); color: var(--parch2); font-size: 16px; }
+.set-bonus { color: var(--text2); margin: 0 0 10px; }
+.set-bonus.on { color: #a9d39f; font-weight: 700; }
+.trophy-set.complete .set-head b { color: var(--goldc); }
+.trophy-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.trophy { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: var(--parch); color: var(--ink); border: 2px solid var(--common); min-height: 140px; }
+.trophy.r-rare { border-color: var(--rare); }
+.trophy.r-epic { border-color: var(--epic); }
+.trophy.r-legendary { border-color: var(--legendary); }
+.trophy b { font-family: var(--display); font-size: 14px; line-height: 1.25; }
+.trophy .small { color: var(--ink2); }
+.trophy-art { color: #8a5a10; }
+.trophy-art .icon { width: 26px; height: 26px; }
+.trophy-meta { margin-top: auto; text-transform: capitalize; font-weight: 700; color: #8a5a10 !important; }
+.trophy.missing { background: transparent; color: var(--text2); border: 1px dashed var(--line); }
+.trophy.missing .small { color: var(--text2); }
+.trophy.missing .trophy-art { color: var(--line); }
+.legend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.legend { display: flex; flex-direction: column; gap: 4px; padding: 14px; border-radius: var(--r); background: var(--bg2); border: 1px solid var(--line); }
+.legend.unknown { border-style: dashed; align-items: center; text-align: center; color: var(--text2); }
+.legend.rumored { border-color: #6e4f86; }
+.legend.quest { border-color: var(--goldc); }
+.legend.recruited { border-color: var(--legendary); background: linear-gradient(160deg, #3a2a12, #221810); }
+.legend-portrait { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; background: #2a2018; color: var(--line); margin-bottom: 4px; }
+.legend-portrait .icon { width: 28px; height: 28px; }
+.legend-portrait.known { background: var(--cc); color: #fff3e0; box-shadow: 0 0 0 2px var(--legendary); }
+.legend-name { font-family: var(--display); font-size: 17px; color: var(--parch2); }
+.legend-epithet { color: var(--goldc); font-style: italic; font-size: 14px; }
+.legend-rumor { font-family: Georgia, serif; font-size: 15px; line-height: 1.5; color: var(--text); margin: 6px 0; }
+.trail { display: grid; gap: 4px; margin-top: auto; }
+.gear-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.gear { display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); }
+.gear-head { display: flex; justify-content: space-between; color: var(--text2); text-transform: capitalize; }
+.gear-name { font-family: var(--display); font-size: 15px; color: var(--parch2); }
+.gear-actions { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.gear.r-uncommon .gear-rarity { color: #8fd08f; }
+.gear.r-rare .gear-rarity { color: #8fb4ea; }
+.gear.r-epic .gear-rarity { color: #c9a0ec; }
+.gear.r-legendary .gear-rarity { color: var(--legendary); }
+.slots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 520px) { .slots { grid-template-columns: 1fr; } }
+.slot { appearance: none; cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--bg2); border: 1px solid var(--line); color: var(--text); font: inherit; }
+.slot.empty b { color: var(--text2); font-weight: 500; }
+.slot:disabled { cursor: default; }
+.equip-pick h3 { font-size: 15px; color: var(--parch2); margin: 14px 0 8px; }
+.codex { display: grid; gap: 10px; }
+.codex-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; }
+@media (min-width: 760px) { .codex-list { grid-template-columns: 1fr 1fr; column-gap: 24px; } }
+.codex-list li { display: flex; justify-content: space-between; font-size: 14px; color: var(--text2); padding: 3px 0; border-bottom: 1px solid rgba(74,55,39,.5); }
+.codex-list li.done { color: #a9d39f; }
+.beast { display: flex; flex-direction: column; gap: 4px; }
+.beast.unknown { border-style: dashed; color: var(--text2); }
+.beast-head { display: flex; justify-content: space-between; align-items: baseline; }
+.beast-head b { font-family: var(--display); color: var(--parch2); }
+.beast-level { color: var(--text2); font-weight: 700; }
+.beast-level.on { color: #a9d39f; }
+.lore { margin: 4px 0; padding-left: 18px; font-family: Georgia, serif; font-size: 14.5px; line-height: 1.45; }

@@ -2,7 +2,7 @@
 import { h, section, countdown } from './dom.js';
 import { icon } from './icons.js';
 import { adventurerCard } from './card.js';
-import { HIRE_COST, hireProblem, nextArrivalAt, roundCost } from '../inn.js';
+import { hireCost, hireProblem, nextArrivalAt, roundCost } from '../inn.js';
 import { SUPPLIES } from '../../data/supplies.js';
 
 export function renderBar(ctx) {
@@ -33,10 +33,11 @@ export function renderBar(ctx) {
             disabled: problem ? true : null,
             title: problem || null,
             onclick: (e) => { e.stopPropagation(); ctx.hire(a.id); },
-          }, h('span', { html: icon('coin') }), problem || `Hire for ${HIRE_COST[a.rarity]}`),
-          h('div', { class: 'recruit-meta' },
-            h('span', null, 'Leaves in ', countdown(a.leavesAt, 'moments')),
-            h('button', { class: 'link-btn', onclick: (e) => { e.stopPropagation(); ctx.sendAway(a.id); } }, 'Send on')))
+          }, h('span', { html: icon('coin') }), problem || (a.legendId ? 'Welcome to the company' : `Hire for ${hireCost(a)}`)),
+          a.legendId ? h('div', { class: 'recruit-meta' }, h('span', null, 'A legend, waiting for a free bed'))
+            : h('div', { class: 'recruit-meta' },
+              h('span', null, 'Leaves in ', countdown(a.leavesAt, 'moments')),
+              h('button', { class: 'link-btn', onclick: (e) => { e.stopPropagation(); ctx.sendAway(a.id); } }, 'Send on')))
       });
     }),
     state.bar.arrivals.map((t) => h('div', { class: 'stool panel' },

@@ -10,7 +10,7 @@ import { SKILLS } from '../data/skills.js';
 import { resolveQuest } from './resolve.js';
 import { buildEncounter, encounterTags } from './encounters.js';
 import { planDispatches } from './dispatch.js';
-import { partyBonuses, addBond, hasFriend } from './bonds.js';
+import { partyBonuses, addBond, hasFriend, partyPairs } from './bonds.js';
 import { progressAfterQuest, progressBond, settleGoals } from './goals.js';
 import {
   isAvailable, gainXp, addHistory, fullName, changeLoyalty, addFatigue, addInjury,
@@ -18,7 +18,9 @@ import {
 import { fill, checkLabel } from './reports.js';
 import { nextId, addLog } from './state.js';
 import { paceOf, paced } from './pace.js';
-import { maxTier, tavernMods, loseRenown, checkRankUp } from './tavern.js';
+import { maxTier, loseRenown, checkRankUp } from './tavern.js';
+import { questMods, afterQuest } from './collection.js';
+import { returnGear } from './gear.js';
 import { finishPersonalQuest } from './stories.js';
 import { CONTRACT, RENOWN_LOSS } from '../data/penalties.js';
 
@@ -78,6 +80,7 @@ export function generateQuest(rng, tier, id, { avoid = [], expedition = false, n
     template: tpl.id,
     title: fill(tpl.title, vars),
     blurb: fill(tpl.blurb, vars),
+    place: tpl.blurb.includes('{town}') || tpl.title.includes('{town}') ? vars.town : null,
     tier,
     expedition,
     duration,             // game-minutes (after early-game pacing)
@@ -135,7 +138,7 @@ function spawnPosting(state, now) {
   const n = b.counter++;
   const rng = new Rng(seedFrom(state.seed, 'post', n));
   const tiers = unlockedTiers(state);
-  const easy = b.quests.filter((q) => q.tier === 1 && !q.expedition && !q.personal).length;
+  const easy = b.quests.filter((q) => q.tier === 1 && !q.expedition && !q.personal && !q.legend).length;
   const pace = paceOf(state);
   const expedition = pace.stage >= EXPEDITION_MIN_STAGE && !b.quests.some((q) => q.expedition) && rng.chance(EXPEDITION_CHANCE);
   const tier = expedition ? rng.pick(tiers) : easy < 2 ? 1 : rng.pick(tiers);
@@ -162,7 +165,7 @@ export function refreshBoard(state, now) {
     for (let k = 0; k < BOARD_SIZE; k++) spawnPosting(state, now);
     changed = true;
   }
-  while (b.quests.filter((q) => !q.personal).length + b.refills.length < BOARD_SIZE) {
+  while (b.quests.filter((q) => !q.personal && !q.legend).length + b.refills.length < BOARD_SIZE) {
     b.refills.push(now + refillDelay(state));
     changed = true;
   }
@@ -212,7 +215,8 @@ export function sendParty(state, questId, advIds, packed, now) {
     packed: pack,
     bonus,
     bonusNotes: notes,
-    tavern: tavernMods(state),
+    tavern: questMods(state),
+    pairs: partyPairs(state, party).map((x) => [x.a.id, x.b.id, x.level.mod > 0 ? 'friends' : 'rivals']),
     dispatches: planDispatches(quest, snapshot, seed, now, endAt),
     startAt: now,
     endAt,
@@ -224,7 +228,7 @@ export function sendParty(state, questId, advIds, packed, now) {
     a.buffs = (a.buffs || []).map((b) => ({ ...b, quests: b.quests - 1 })).filter((b) => b.quests > 0);
   }
   state.board.quests = state.board.quests.filter((q) => q.id !== questId);
-  if (!quest.personal) state.board.refills.push(now + refillDelay(state));
+  if (!quest.personal && !quest.legend) state.board.refills.push(now + refillDelay(state));
   state.pending.push(pending);
   state.stats.questsSent += 1;
   addLog(state, `${party.map((a) => a.name.split(' ')[0]).join(', ')} set out: ${quest.title}.`, now);
@@ -236,7 +240,7 @@ export const isReturned = (p, now) => now >= p.endAt;
 export function resultFor(p) {
   if (p.result) return p.result; // saves from before version 2
   return resolveQuest(p.quest, p.snapshot, p.seed, {
-    packed: p.packed, bonus: p.bonus, bonusNotes: p.bonusNotes, dispatches: p.dispatches, tavern: p.tavern,
+    packed: p.packed, bonus: p.bonus, bonusNotes: p.bonusNotes, dispatches: p.dispatches, tavern: p.tavern, pairs: p.pairs,
   });
 }
 
@@ -318,10 +322,13 @@ export function collectQuest(state, pendingId, now) {
   }
   for (const a of advs) progressBond(a, hasFriend(state, a.id));
   if (renownLost) events.push(`Word of the ${r.outcome} spread: -${renownLost} renown.`);
+  const col = afterQuest(state, p, r, now);
+  events.push(...col.events);
   if (r.outcome === 'triumph') events.push('A triumph: everyone in the party grew more loyal.');
   if (!won) {
     for (const a of advs.filter((x) => (x.loyalty || 0) <= 0)) {
       state.roster = state.roster.filter((x) => x.id !== a.id);
+      returnGear(state, a);
       const msg = `${a.name.split(' ')[0]} has had enough and left the company.`;
       events.push(msg);
       addLog(state, msg, now);
@@ -356,6 +363,7 @@ export function collectQuest(state, pendingId, now) {
     depositBack,
     contractBonus,
     personal: !!p.quest.personal,
+    loot: col.loot,
     rankUps,
   };
   state.reports.unshift(record);

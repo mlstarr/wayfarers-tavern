@@ -3,6 +3,7 @@ import { RANKS, UPGRADES } from '../data/tavern.js';
 import { WAGES, MAX_MISSED_PAYDAYS } from '../data/penalties.js';
 import { addLog } from './state.js';
 import { changeLoyalty, firstName } from './adventurers.js';
+import { returnGear } from './gear.js';
 
 const HOUR = 3600000;
 const ALE_CAP_HOURS = 8;
@@ -146,6 +147,7 @@ export function processPaydays(state, now) {
       changeLoyalty(a, -1);
       if (a.loyalty <= 0 && a.status === 'idle') {
         state.roster = state.roster.filter((x) => x.id !== a.id);
+        returnGear(state, a);
         events.push(`${firstName(a)} quit over unpaid wages.`);
       }
     }

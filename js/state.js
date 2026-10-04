@@ -3,7 +3,7 @@ import { START_GOLD, START_LOYALTY } from './config.js';
 import { STARTING_SUPPLIES } from '../data/supplies.js';
 
 export const SAVE_KEY = 'wayfarers-tavern-save';
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export function newGame(seed, now = Date.now()) {
   return {
@@ -23,6 +23,10 @@ export function newGame(seed, now = Date.now()) {
     scenes: { slot: null, list: [] },
     tavern: { rank: 0, upgrades: {}, aleAt: null, paydayAt: null },
     flags: {},
+    trophies: {},     // id -> { at, quest }
+    stash: [],        // gear not equipped
+    legends: {},      // id -> { status, progress }
+    codex: { monsters: {}, places: {}, classes: {}, ancestries: {}, quirks: {} },
     log: [],          // { at, text }, newest first
     stats: { questsSent: 0, questsDone: 0, triumphs: 0, goldEarned: 0 },
     settings: {},
@@ -64,6 +68,20 @@ const MIGRATIONS = {
   // v3 -> v4: the bar turns over continuously
   3: (s) => {
     s.bar = { recruits: [], arrivals: [], counter: 0 };
+    return s;
+  },
+  // v4 -> v5: collections (trophies, gear, legends, codex)
+  4: (s) => {
+    s.trophies = {};
+    s.stash = [];
+    s.legends = {};
+    s.codex = { monsters: {}, places: {}, classes: {}, ancestries: {}, quirks: {} };
+    for (const a of s.roster) {
+      a.gear = {};
+      s.codex.classes[a.cls] = true;
+      s.codex.ancestries[a.ancestry] = true;
+      for (const q of a.quirks) s.codex.quirks[q] = true;
+    }
     return s;
   },
 };

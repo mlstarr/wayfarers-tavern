@@ -11,6 +11,7 @@ import { line, actorVars, checkLabel, fill } from './reports.js';
 import { buildEncounter, encounterTags } from './encounters.js';
 import { roll, skillCheck, groupCheck, combat, bestAt, hurt } from './checks.js';
 import { dispatchVars, defaultOption } from './dispatch.js';
+import { buildTale } from './tale.js';
 
 const MULT = {
   triumph: { gold: 1.5, xp: 1.25, renown: 3 },
@@ -31,7 +32,7 @@ export function activeConditions(quest, packed = {}) {
   return out;
 }
 
-// opts: { packed, bonus, bonusNotes, dispatches }
+// opts: { packed, bonus, bonusNotes, dispatches, tavern, pairs }
 export function resolveQuest(quest, party, seed, opts = {}) {
   const rng = new Rng(seed);
   const packed = opts.packed || {};
@@ -66,6 +67,7 @@ export function resolveQuest(quest, party, seed, opts = {}) {
     ctx.index = i;
     ctx.half = Math.ceil(queue.length / 2);
     ctx.isFinale = !!enc.finale;
+    ctx.currentFoe = enc.monster ? enc.monster.id : null;
     const label = checkLabel(def);
     const alive = sim.filter((m) => m.hp > 0);
     let out;
@@ -79,7 +81,10 @@ export function resolveQuest(quest, party, seed, opts = {}) {
     played += 1;
     if (out.success) successes += 1;
     if (!out.skipped) out.lines.push(...recover(ctx));
-    blocks.push({ def: enc.def, title: def.title, kind: def.kind, label, finale: !!enc.finale, ...out });
+    blocks.push({
+      def: enc.def, title: def.title, kind: def.kind, label, finale: !!enc.finale,
+      tags: ctx.tagsOf(enc), monsterId: enc.monster ? enc.monster.id : null, ...out,
+    });
   }
 
   const ratio = played ? successes / played : 0;
@@ -94,14 +99,19 @@ export function resolveQuest(quest, party, seed, opts = {}) {
   const m = MULT[outcome];
   const greedy = party.some((a) => A.hasSpecial(a, 'greedy')) ? 1.1 : 1;
   const extra = outcome === 'disaster' ? 0 : ctx.bonusGold + ctx.goldFlat;
-  let gold = (quest.gold + extra) * m.gold * greedy * Math.max(0, 1 + ctx.goldMult);
+  let gold = (quest.gold + extra) * m.gold * greedy * Math.max(0, 1 + ctx.goldMult + (ctx.tavern.gold || 0));
   gold = Math.max(0, Math.round(gold * (1 - Math.min(0.9, ctx.goldLoss))));
 
   if (outcome === 'triumph') for (const s of sim) ctx.history.push({ id: s.id, text: `Triumphed: ${quest.title}.` });
   for (const id of downed) ctx.history.push({ id, text: `Fell during "${quest.title}" and was carried home.` });
 
+  const tale = buildTale({
+    quest, party: sim, blocks, outcome, packed, pairs: opts.pairs || [], seed,
+  });
+
   return {
     seed,
+    tale,
     encounters: blocks,
     successes,
     played,

@@ -14,6 +14,8 @@ import { readyStories, playStory } from '../js/stories.js';
 import { processPaydays, collectAle, buyUpgrade, rosterCap } from '../js/tavern.js';
 import { UPGRADE_IDS } from '../data/tavern.js';
 import { applyRecovery } from '../js/adventurers.js';
+import { prestige, codexStats } from '../js/collection.js';
+import { equip } from '../js/gear.js';
 
 let failures = 0;
 const check = (cond, msg) => { if (!cond) { failures += 1; console.error('FAIL:', msg); } };
@@ -78,6 +80,11 @@ for (let loop = 0; loop < 80; loop++) {
     check(rec.result.encounters.filter((e) => e.dispatch).length === p.dispatches.length, 'report shows every dispatch');
     tally.events += rec.events.length;
     tally.injuries += rec.injuries.length;
+    tally.trophies = (tally.trophies || 0) + rec.loot.trophies.length;
+    if (rec.loot.gear) { tally.gear = (tally.gear || 0) + 1; const idle = state.roster.find((a) => a.status === 'idle'); if (idle && state.stash.length) equip(state, idle.id, state.stash[0].uid); }
+    if (rec.loot.rumor) tally.rumors = (tally.rumors || 0) + 1;
+    if (rec.loot.legend) tally.legends = (tally.legends || 0) + 1;
+    check(rec.result.tale && rec.result.tale.opening.length && rec.result.tale.closing.length, 'every report has a tale');
     tally.renownLost += rec.renownLost;
     tally.rankUps += rec.rankUps.length;
     if (rec.personal && rec.events.some((e) => e.includes('earned a legacy'))) tally.legacies += 1;
@@ -97,6 +104,8 @@ console.log(`      ${tally.dispatches} dispatches (${tally.answered} answered), 
 check(tally.dispatches > 0 && tally.scenes > 0 && tally.talents > 0, 'new systems all fired');
 console.log(`      ${tally.stories} story beats, ${tally.personal} personal quests (${tally.legacies} legacies), ${tally.injuries} injuries, ${tally.contracts} contracts, -${tally.renownLost} renown lost, ${tally.rankUps} rank-ups (rank ${state.tavern.rank + 1}), ${tally.paydays} payday events, ${tally.built} rooms built`);
 check(tally.stories > 0 && tally.personal > 0 && tally.rankUps > 0, 'progression fired');
+console.log(`      collections: ${tally.trophies || 0} trophies, ${tally.gear || 0} gear drops, ${tally.rumors || 0} rumors, ${tally.legends || 0} legends recruited, prestige ${prestige(state)}, codex ${codexStats(state).percent}%, stash ${state.stash.length}`);
+check((tally.trophies || 0) > 0 && (tally.gear || 0) > 0 && (tally.rumors || 0) > 0, 'collections fill up');
 
 // 1b. Penalties on a hopeless job: injuries, fatigue, renown loss, lost deposit
 {
@@ -162,7 +171,7 @@ console.log(`      quest lengths sent, in minutes: ${firstLengths.slice(0, 24).j
 
 // 2. Save round trip
 const copy = importSave(exportSave(state));
-check(copy.roster.length === state.roster.length && copy.version === 4, 'save round-trips');
+check(copy.roster.length === state.roster.length && copy.version === 5, 'save round-trips');
 
 // 3. Migration from a version 1 save
 const v1 = JSON.parse(JSON.stringify(state));
@@ -170,7 +179,7 @@ v1.version = 1;
 delete v1.supplies; delete v1.bonds; delete v1.scenes;
 for (const a of v1.roster) { delete a.talents; delete a.pendingTalents; delete a.loyalty; delete a.buffs; delete a.goal; }
 const migrated = importSave(exportSave(v1));
-check(migrated.version === 4 && migrated.tavern && migrated.bar.arrivals && migrated.supplies && migrated.roster.every((a) => Array.isArray(a.talents)), 'v1 save migrates');
+check(migrated.version === 5 && Array.isArray(migrated.stash) && migrated.tavern && migrated.bar.arrivals && migrated.supplies && migrated.roster.every((a) => Array.isArray(a.talents)), 'v1 save migrates');
 for (const a of migrated.roster) if (!a.goal) assignGoal(a);
 check(migrated.roster.every((a) => a.goal), 'migrated adventurers get goals');
 

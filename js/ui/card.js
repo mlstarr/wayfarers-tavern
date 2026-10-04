@@ -15,6 +15,9 @@ import { INJURIES } from '../../data/penalties.js';
 import { storyStatus } from '../stories.js';
 import { wageOf } from '../tavern.js';
 import { LOYALTY_TIERS } from '../../data/loyalty.js';
+import { SLOTS } from '../../data/gear.js';
+import { itemDesc } from '../gear.js';
+import { LEGENDS } from '../../data/legends.js';
 import * as A from '../adventurers.js';
 
 export function statusOf(adv, now) {
@@ -98,7 +101,7 @@ function talentChoice(adv, onChoose) {
 
 // state: needed for bonds. onChooseTalent(index): level-up choice handler.
 // onHeal(injuryId) and herbCost: the herbalist button for injuries.
-export function adventurerDetail(adv, { now = Date.now(), actions, state, onChooseTalent, onHeal, herbCost, onStory } = {}) {
+export function adventurerDetail(adv, { now = Date.now(), actions, state, onChooseTalent, onHeal, herbCost, onStory, onGear } = {}) {
   const cls = CLASSES[adv.cls];
   const anc = ANCESTRIES[adv.ancestry];
   const bg = BACKGROUNDS.find((b) => b.id === adv.background);
@@ -142,6 +145,18 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
       h('ul', { class: 'traits' }, adv.injuries.map((i) => h('li', { class: 'bad' },
         h('b', null, `${INJURIES[i.id].name}. `), INJURIES[i.id].desc, ' Heals in ', countdown(i.healAt, 'moments'), '. ',
         onHeal ? h('button', { class: 'btn small', onclick: () => onHeal(i.id) }, `Herbalist: ${herbCost} gold`) : null)))] : null,
+    h('h3', null, 'Gear'),
+    h('div', { class: 'slots' }, Object.entries(SLOTS).map(([slot, label]) => {
+      const g = (adv.gear || {})[slot];
+      return h('button', {
+        class: `slot${g ? ` r-${g.rarity}` : ' empty'}`,
+        disabled: onGear ? null : true,
+        onclick: onGear ? () => onGear(slot) : null,
+      },
+      h('span', { class: 'muted small' }, label),
+      h('b', null, g ? g.name : 'Empty'),
+      g ? h('span', { class: 'small' }, itemDesc(g)) : null);
+    })),
     h('h3', null, 'Loyalty'),
     h('ul', { class: 'loyalty-ladder' }, LOYALTY_TIERS.map((t) => h('li', {
       class: t.key === A.loyaltyTier(adv).key ? 'now' : '',
@@ -157,6 +172,7 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
     h('ul', { class: 'traits' },
       h('li', null, h('b', null, `${cls.name}. `), cls.perkText),
       anc.trait ? h('li', null, h('b', null, `${anc.name}. `), anc.traitText) : null,
+      adv.legendId ? h('li', { class: 'talent' }, h('b', null, `${LEGENDS[adv.legendId].signature.name}. `), LEGENDS[adv.legendId].signature.desc) : null,
       adv.legacy && state ? h('li', { class: 'talent' }, h('b', null, 'Legacy. '), storyStatus(adv).text.replace(/^Complete\. /, '')) : null,
       (adv.talents || []).map((t) => h('li', { class: 'talent' }, h('b', null, `${TALENTS[t].name}. `), TALENTS[t].desc)),
       adv.quirks.map((q) => h('li', { class: QUIRKS[q].tone }, h('b', null, `${QUIRKS[q].name}. `), QUIRKS[q].desc)),

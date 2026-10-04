@@ -8,7 +8,7 @@ import { line, actorVars, joinNames } from './reports.js';
 const MAX_ROUNDS = 5;
 
 // Situational modifiers for one roll: bonds/buffs, conditions, dispatch effects.
-function situational(ctx, m, { skill, ability, attack }) {
+function situational(ctx, m, { skill, ability, attack, tags = [] }) {
   let mod = 0;
   const labels = [];
   const add = (n, label) => { if (n) { mod += n; labels.push(`${label} ${n > 0 ? '+' : ''}${n}`); } };
@@ -24,6 +24,12 @@ function situational(ctx, m, { skill, ability, attack }) {
   }
   const tv = ctx.tavern;
   if (attack && tv.attack) add(tv.attack, 'armory');
+  if (attack && tv.foes && ctx.currentFoe && tv.foes[ctx.currentFoe]) add(tv.foes[ctx.currentFoe], 'known foe');
+  for (const t of tags) {
+    if (attack && tv.tagAttack && tv.tagAttack[t]) add(tv.tagAttack[t], 'trophies');
+    if (tv.tagRoll && tv.tagRoll[t]) add(tv.tagRoll[t], 'trophies');
+    if (!attack && skill && tv.tagSkill && tv.tagSkill[t]) add(tv.tagSkill[t], 'trophies');
+  }
   if (!attack && skill && tv.skill) add(tv.skill, 'maps');
   if (ctx.isFinale && tv.finale) add(tv.finale, 'chapel');
   for (const pm of ctx.partyMods) {
@@ -42,7 +48,7 @@ export function roll(ctx, m, { label, skill = null, ability = null, base, dc, ta
     if (ctx.heroAdv[m.id]) plus.push(ctx.heroAdv[m.id]);
   }
   const { mode, reasons } = A.modeOf(plus, minus);
-  const sit = situational(ctx, m, { skill, ability, attack });
+  const sit = situational(ctx, m, { skill, ability, attack, tags });
   const bonus = base + sit.mod;
   const r = ctx.rng.d20(mode);
   const notes = [...reasons, ...(attack ? [] : sit.labels)];

@@ -4,6 +4,8 @@ import { adventurerCard, adventurerDetail } from './card.js';
 import { rosterCap } from '../tavern.js';
 import { fullName } from '../adventurers.js';
 import { openStory } from './story.js';
+import { gearTile } from './hall.js';
+import { SLOTS } from '../../data/gear.js';
 
 export function renderRoster(ctx) {
   const { state } = ctx;
@@ -41,6 +43,7 @@ export function openDetail(ctx, advId) {
     state: ctx.state,
     herbCost: ctx.herbalistCost(),
     onStory: adv.arc ? () => { close(); openStory(ctx, adv.id); } : null,
+    onGear: (slot) => openGearSlot(ctx, adv, slot, () => { close(); openDetail(ctx, adv.id); }),
     onHeal: (injuryId) => { if (ctx.herbalist(adv.id, injuryId)) { close(); openDetail(ctx, adv.id); } },
     onChooseTalent: (i) => {
       const t = ctx.chooseTalent(adv.id, i);
@@ -51,4 +54,21 @@ export function openDetail(ctx, advId) {
       }
     },
   }), { title: fullName(adv), wide: true });
+}
+
+function openGearSlot(ctx, adv, slot, refresh) {
+  const cur = (adv.gear || {})[slot];
+  const options = ctx.state.stash.filter((g) => g.slot === slot);
+  let close;
+  const done = (ok) => { if (ok) { close(); refresh(); } };
+  const body = h('div', { class: 'equip-pick' },
+    adv.status !== 'idle' ? h('p', { class: 'notice' }, 'Gear can only change hands while the hero is at the tavern.') : null,
+    cur ? h('div', null, h('h3', null, 'Carrying'), gearTile(cur, {
+      actions: [h('button', { class: 'btn small', onclick: () => done(ctx.unequip(adv.id, slot)) }, 'Take off')],
+    })) : null,
+    h('h3', null, `In the armory (${SLOTS[slot].toLowerCase()})`),
+    options.length ? h('div', { class: 'gear-grid' }, options.map((g) => gearTile(g, {
+      actions: [h('button', { class: 'btn small primary', onclick: () => done(ctx.equip(adv.id, g.uid)) }, 'Equip')],
+    }))) : h('p', { class: 'muted' }, 'Nothing for this slot yet. Gear turns up on quests.'));
+  close = openSheet(body, { title: `${adv.name.split(' ')[0]}: ${SLOTS[slot].toLowerCase()}`, wide: true });
 }

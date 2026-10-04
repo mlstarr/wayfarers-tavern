@@ -8,6 +8,7 @@ import { TALENTS } from '../data/talents.js';
 import { INJURIES, INJURY_IDS, FATIGUE_MIN, FATIGUE_LEVELS } from '../data/penalties.js';
 import { ARCS } from '../data/arcs.js';
 import { LOYALTY_TIERS } from '../data/loyalty.js';
+import { LEGENDS } from '../data/legends.js';
 import { ABILITIES, SKILLS } from '../data/skills.js';
 import { MIN, REST_FRACTION, REST_MIN, START_LOYALTY, MAX_LOYALTY } from './config.js';
 import { offerTalents } from './talents.js';
@@ -25,7 +26,7 @@ export const profBonus = (level) => 2 + Math.floor((level - 1) / 4);
 export function generateAdventurer(rng, opts = {}) {
   const rIdx = opts.rarity
     ? RARITIES.indexOf(opts.rarity)
-    : rng.weighted(RARITY_WEIGHTS.map((w, i) => [i, w]));
+    : rng.weighted(RARITY_WEIGHTS.map((w, i) => [i, w * (1 + 0.25 * (opts.boost || 0) * i)]));
   const ancestry = opts.ancestry || rng.weighted(ANCESTRY_IDS.map((id) => [id, ANCESTRIES[id].weight]));
   const clsId = opts.cls || rng.pick(CLASS_IDS);
   const cls = CLASSES[clsId];
@@ -96,6 +97,8 @@ export function traits(adv) {
     ...(adv.talents || []).map((t) => TALENTS[t]),
     ...(adv.injuries || []).map((i) => INJURIES[i.id]),
     ...(adv.legacy ? [ARCS[adv.legacy].legacy] : []),
+    ...(adv.legendId ? [LEGENDS[adv.legendId].signature] : []),
+    ...Object.values(adv.gear || {}),
   ];
 }
 

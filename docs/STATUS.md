@@ -1,10 +1,10 @@
 # Status
 
-Last updated: 2026-10-04 (auto-restock)
+Last updated: 2026-10-04 (tales and collections)
 
 ## Built
 **M1 core loop**
-- Seeded RNG, versioned save (now v2, with a v1 migration) and export/import.
+- Seeded RNG, versioned save (now v5, with migrations from v1) and export/import.
 - Adventurers: 6 ancestries, 8 classes with perks, 4d6-drop-lowest stats, backgrounds, 19 quirks with effects, 5 rarities.
 - Resolution: skill checks, group checks, combat rounds, advantage and disadvantage, luck, inspiration, healing, second wind, sneak attack, smite, rage. Outcomes from triumph to disaster.
 - Reports with every roll visible; bar recruits; resting; offline catch-up; card UI with heraldic shields.
@@ -38,6 +38,15 @@ Last updated: 2026-10-04 (auto-restock)
 
 **Auto-restock** (`autoRestock` in js/inn.js): each supply has a "keep" level (off, 1 to 3) in the quartermaster; after supplies are used the quartermaster buys back up to it, never spending below the next payday's wages. Master toggle in Settings (`state.settings.autoRestock`, on by default; targets in `state.settings.restock`).
 
+**Tales and collections** (save v5)
+- **Quest tales** (`data/narrative.js`, `js/tale.js`, `js/ui/report.js`): reports read as a story. A departure and packing line, travel paragraphs between scenes, an intro for each encounter, camp banter shaped by bonds and quirks, letters from the road for dispatches, then an epilogue. Each scene's dice sit behind a "The dice (n)" toggle. The tally card closes the report with rewards and loot. The tale has its own seed (`seedFrom(seed,'tale')`), so wording never changes outcomes.
+- **Hall tab** (`js/ui/hall.js`, was Rooms): segments for Rooms, Trophies, Legends, Armory and Bestiary.
+- **Trophies** (`data/trophies.js`): 20 trophies from specific foes, places and outcomes. Missing ones show a hint. Prestige (1, 2, 4, 8 by rarity) raises the rarity of bar recruits. Five sets of 4 grant a bonus every party carries. Duplicates sell for gold.
+- **Legendary heroes** (`data/legends.js`, `js/legends.js`): 8 named legends. A rumor arrives after a quest (from quest 3, gated by rank). Then follow a trail (for example, beat wolves twice). Then win a recruitment quest that the legend's own story posts on the board. Legends have fixed stats, a signature trait and no hire cost. With no free bed, they wait at the bar.
+- **Gear** (`data/gear.js`, `js/gear.js`): weapon, armor and trinket slots. Five rarities with affixes and 6 unique legendary items. The armory holds 24 items, and finds are sold when it is full. Gear is equipped from the hero detail or the armory, only while the hero is idle. Heroes who leave return their gear.
+- **Bestiary and codex** (`data/bestiary.js`, `js/collection.js`): 3 defeats of a foe studies it (+1 attack) and 10 masters it (+2), each step unlocking lore. The codex tracks monsters, towns, classes, ancestries, quirks, trophies, legends and legendary gear.
+- Set bonuses and foe knowledge are snapshotted per quest in `pending.tavern = questMods(state)`.
+
 ## How to test
 - `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, and prints the balance table.
 - Open with `?fast` so game-minutes pass in seconds.
@@ -49,7 +58,7 @@ Last updated: 2026-10-04 (auto-restock)
 - `systems.css` holds styles for the depth update; `style.css` the base.
 
 ## Next
-1. Death with risk shown upfront; Hall of Heroes; Casual mode at new game.
+1. Death with risk shown upfront (legends and their gear raise the stakes); Hall of Heroes; Casual mode at new game.
 2. Injuries and scars as lasting traits.
 3. More dispatch, scene and goal content (cheap: data files only).
 4. Early recall of a party.

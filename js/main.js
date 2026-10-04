@@ -19,7 +19,10 @@ import { renderTavern } from './ui/tavern.js';
 import { renderBoard } from './ui/board.js';
 import { renderRoster } from './ui/roster.js';
 import { renderBar } from './ui/bar.js';
-import { renderRooms, showRankUp } from './ui/rooms.js';
+import { showRankUp } from './ui/rooms.js';
+import { renderHall } from './ui/hall.js';
+import { ensureCollections } from './collection.js';
+import { equip, unequip, sellItem } from './gear.js';
 import { healInjury } from './adventurers.js';
 import { HERBALIST_COST } from '../data/penalties.js';
 import { readyStories } from './stories.js';
@@ -33,7 +36,7 @@ const TABS = [
   { id: 'board', label: 'Quests', render: renderBoard },
   { id: 'roster', label: 'Roster', render: renderRoster },
   { id: 'bar', label: 'Bar', render: renderBar },
-  { id: 'rooms', label: 'Rooms', render: renderRooms },
+  { id: 'rooms', label: 'Hall', render: renderHall },
 ];
 
 let state;
@@ -61,6 +64,7 @@ function alerts(now = Date.now()) {
 // Board, bar, scenes, resting, returns, messengers. Returns true if anything changed.
 function maintenance() {
   const now = Date.now();
+  ensureCollections(state);
   const pace = paceOf(state);
   const tv = tavernMods(state);
   setRecoveryPace(pace.scale / tv.healSpeed, tv.fatigueSpeed);
@@ -172,6 +176,20 @@ const ctx = {
   },
   sendAway(id) {
     if (sendAway(state, id, Date.now())) { toast('They finish their drink and head for the door.'); commit(); }
+  },
+  equip(advId, uid) {
+    const res = equip(state, advId, uid);
+    if (res.ok) { toast(`Equipped: ${res.item.name}.`); commit(); } else toast(res.reason);
+    return res.ok;
+  },
+  unequip(advId, slot) {
+    const res = unequip(state, advId, slot);
+    if (res.ok) { toast(`${res.item.name} went back to the armory.`); commit(); } else toast(res.reason);
+    return res.ok;
+  },
+  sell(uid) {
+    const gold = sellItem(state, uid);
+    if (gold) { toast(`Sold to the smith for ${gold} gold.`); commit(); }
   },
   setRestock(id, n) { setRestockTarget(state, id, n); commit(); },
   toggleAutoRestock(on) { state.settings.autoRestock = on; commit(); },
