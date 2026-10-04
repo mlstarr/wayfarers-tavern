@@ -11,7 +11,7 @@ import { LOYALTY_TIERS } from '../data/loyalty.js';
 import { LEGENDS } from '../data/legends.js';
 import { ABILITIES, SKILLS } from '../data/skills.js';
 import { MIN, REST_FRACTION, REST_MIN, START_LOYALTY, MAX_LOYALTY } from './config.js';
-import { offerTalents } from './talents.js';
+import { offerTalents, grantPathRanks } from './talents.js';
 import { assignGoal } from './goals.js';
 
 export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
@@ -82,6 +82,9 @@ export function generateAdventurer(rng, opts = {}) {
     restAt: null,
     history: [],
     stats: { quests: 0, triumphs: 0, nat20: 0, nat1: 0 },
+    deeds: { kills: {}, falls: 0, injuries: 0, expeditions: 0, disasters: 0, finales: 0, saved: 0 },
+    path: null,           // chosen at level 3 (data/paths.js)
+    offered: [],          // talents already offered, shown less often
   };
   adv.maxHp = Math.max(4, cls.hitDie + mod(abilities.con) + traitHp(adv));
   adv.hp = adv.maxHp;
@@ -107,6 +110,24 @@ export function traits(adv) {
 export function traitHp(adv) {
   return adv.quirks.reduce((s, q) => s + (QUIRKS[q].hp || 0), 0);
 }
+
+// Sum of a numeric effect field across every trait.
+export function sumTrait(adv, field) {
+  return traits(adv).reduce((s, t) => s + (typeof t[field] === 'number' ? t[field] : 0), 0);
+}
+
+// Sum of a keyed effect field (dmgVs, atkVs, bloodied) over the given keys.
+export function sumVs(adv, field, keys) {
+  let n = 0;
+  for (const t of traits(adv)) {
+    const m = t[field];
+    if (!m) continue;
+    for (const k of keys) n += m[k] || 0;
+  }
+  return n;
+}
+
+export const hasTrait = (adv, field) => traits(adv).some((t) => t[field]);
 
 export function hasFlag(adv, flag) {
   return traits(adv).some((t) => t.flag === flag);
@@ -142,6 +163,7 @@ export function checkBonus(adv, skill, ability) {
     if (t.mods[ab]) bonus += t.mods[ab];
   }
   for (const t of traits(adv)) bonus += t.rollMod || 0;
+  if (skill && !isProficient(adv, skill) && hasSpecial(adv, 'jack')) bonus += 2;
   return bonus;
 }
 
@@ -164,6 +186,7 @@ export function rollFactors(adv, tags = [], attack = false) {
     if (t.adv && t.adv.some((x) => tags.includes(x))) plus.push(t.name.toLowerCase());
     if (t.dis && t.dis.some((x) => tags.includes(x))) minus.push(t.name.toLowerCase());
   }
+  if (minus.length && hasTrait(adv, 'fearless')) minus.length = 0;
   const perk = CLASSES[adv.cls].perk;
   if (perk === 'arcane' && tags.includes('magic')) plus.push('arcane insight');
   if (perk === 'hunter' && attack && tags.includes('beast')) plus.push('hunter');
@@ -184,8 +207,9 @@ export function xpToNext(adv) {
   return adv.level >= MAX_LEVEL ? null : XP_TABLE[adv.level];
 }
 
-// Adds XP and applies level-ups, each with a talent choice. Returns [{ level, hpGain }].
-export function gainXp(adv, amount) {
+// Adds XP and applies level-ups, each with a talent choice, plus path features at 6 and 9.
+// extra: { friends, rivals } for deed talents. Returns [{ level, hpGain, path }].
+export function gainXp(adv, amount, extra) {
   adv.xp += amount;
   const ups = [];
   while (adv.level < MAX_LEVEL && adv.xp >= XP_TABLE[adv.level]) {
@@ -194,9 +218,10 @@ export function gainXp(adv, amount) {
     adv.maxHp += hpGain;
     adv.hp += hpGain;
     adv.pendingTalents = adv.pendingTalents || [];
-    const offer = offerTalents(adv);
+    const offer = offerTalents(adv, extra);
     if (offer.length) adv.pendingTalents.push(offer);
-    ups.push({ level: adv.level, hpGain });
+    const path = grantPathRanks(adv).map((t) => t.name);
+    ups.push({ level: adv.level, hpGain, path });
   }
   return ups;
 }
@@ -220,7 +245,7 @@ export function setRecoveryPace(rest, fatigue = 1) { pace.rest = rest; pace.fati
 export const restScale = () => pace.rest;
 
 function msPerHp(adv) {
-  return (REST_MIN * MIN * pace.rest) / Math.max(1, adv.maxHp * REST_FRACTION);
+  return (REST_MIN * MIN * pace.rest) / Math.max(1, adv.maxHp * REST_FRACTION) / (1 + sumTrait(adv, 'rest'));
 }
 
 // ---- Fatigue and injuries ----

@@ -118,7 +118,7 @@ export function openReport(record) {
       h('li', null, h('b', null, i.name), ` came home with a ${i.injury.toLowerCase()} (${i.desc.replace(/\.$/, '').toLowerCase()} until healed).`))) : null,
     r.potionsUsed ? h('p', { class: 'muted small' }, `${r.potionsUsed} healing potion${r.potionsUsed > 1 ? 's' : ''} used${r.potionsLeft ? `, ${r.potionsLeft} brought home` : ''}.`) : null,
     record.levelUps.length ? h('ul', { class: 'levelups' }, record.levelUps.map((u) =>
-      h('li', null, h('b', null, u.name), ` reached level ${u.level} (+${u.hpGain} max HP). Choose a talent on the roster.`))) : null,
+      h('li', null, h('b', null, u.name), ` reached level ${u.level} (+${u.hpGain} max HP)${(u.path || []).length ? ` and mastered ${u.path.join(' and ')}` : ''}. ${u.level === 3 ? 'Choose a path on the roster.' : 'Choose a talent on the roster.'}`))) : null,
     (record.events || []).length ? h('ul', { class: 'events' }, record.events.map((t) => h('li', null, t))) : null);
 
   reveal.append(

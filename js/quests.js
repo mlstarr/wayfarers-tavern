@@ -10,10 +10,11 @@ import { SKILLS } from '../data/skills.js';
 import { resolveQuest } from './resolve.js';
 import { buildEncounter, encounterTags } from './encounters.js';
 import { planDispatches } from './dispatch.js';
-import { partyBonuses, addBond, hasFriend, partyPairs } from './bonds.js';
+import { partyBonuses, addBond, hasFriend, partyPairs, bondsOf } from './bonds.js';
+import { recordDeeds, ensureDeeds } from './deeds.js';
 import { progressAfterQuest, progressBond, settleGoals } from './goals.js';
 import {
-  isAvailable, gainXp, addHistory, fullName, changeLoyalty, addFatigue, addInjury,
+  isAvailable, gainXp, addHistory, fullName, changeLoyalty, addFatigue, addInjury, sumTrait,
 } from './adventurers.js';
 import { fill, checkLabel } from './reports.js';
 import { nextId, addLog } from './state.js';
@@ -270,12 +271,15 @@ export function collectQuest(state, pendingId, now) {
     if (r.outcome === 'triumph') changeLoyalty(a, 1);
     if (r.outcome === 'disaster') changeLoyalty(a, -1);
     for (const h of (r.history || []).filter((x) => x.id === id)) addHistory(a, h.text, p.endAt);
-    for (const u of gainXp(a, r.xp)) {
-      levelUps.push({ id, name: fullName(a), level: u.level, hpGain: u.hpGain });
+    recordDeeds(a, r, p.quest);
+    const bonds = bondsOf(state, id);
+    const extra = { friends: bonds.filter((b) => b.level.mod > 0).length, rivals: bonds.filter((b) => b.level.mod < 0).length };
+    for (const u of gainXp(a, Math.round(r.xp * (1 + sumTrait(a, 'xpSelf'))), extra)) {
+      levelUps.push({ id, name: fullName(a), level: u.level, hpGain: u.hpGain, path: u.path });
       addHistory(a, `Reached level ${u.level}.`, p.endAt);
     }
     if (r.defeated) progressAfterQuest(a, r, p.quest, (r.goalBoost || {})[id] || 0);
-    addFatigue(a, p.quest.expedition ? 2 : 1, p.endAt);
+    addFatigue(a, Math.max(0, (p.quest.expedition ? 2 : 1) + sumTrait(a, 'fatigue') - sumTrait(a, 'fatigueResist')), p.endAt);
     partyInfo.push({ id, name: fullName(a), cls: a.cls, fell });
   }
 
@@ -287,6 +291,7 @@ export function collectQuest(state, pendingId, now) {
     if (fell || (r.outcome === 'disaster' && hurtRng.chance(0.3))) {
       const inj = addInjury(a, hurtRng, p.endAt);
       if (inj) {
+        ensureDeeds(a).injuries += 1;
         injuries.push({ id: a.id, name: a.name.split(' ')[0], injury: inj.name, desc: inj.desc });
         addHistory(a, `Came home from "${p.quest.title}" with a ${inj.name.toLowerCase()}.`, p.endAt);
       }

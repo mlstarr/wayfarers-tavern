@@ -135,10 +135,10 @@ Static browser game on GitHub Pages: plain HTML, CSS and JS modules. See `docs/C
 ```
 wayfarers-tavern/
   index.html  style.css  systems.css
-  js/   main.js state.js config.js rng.js adventurers.js talents.js goals.js bonds.js inn.js quests.js
+  js/   main.js state.js config.js rng.js adventurers.js talents.js deeds.js talent-text.js auras.js combat.js goals.js bonds.js inn.js quests.js
         encounters.js resolve.js checks.js dispatch.js scenes.js reports.js
         ui/  dom.js icons.js heraldry.js card.js tavern.js board.js roster.js bar.js report.js settings.js
-  data/ skills.js classes.js ancestries.js names.js backgrounds.js quirks.js talents.js goals.js monsters.js
+  data/ skills.js classes.js ancestries.js names.js backgrounds.js quirks.js talents.js talents-personal.js paths.js goals.js monsters.js
         encounters.js quests.js supplies.js dispatches.js scenes.js report-templates.js
   tools/smoke.mjs
   docs/ DESIGN.md CONVENTIONS.md STATUS.md

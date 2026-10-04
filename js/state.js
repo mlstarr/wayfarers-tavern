@@ -1,9 +1,10 @@
 // Game state shape, save/load and migrations. The only module that touches storage.
 import { START_GOLD, START_LOYALTY } from './config.js';
 import { STARTING_SUPPLIES } from '../data/supplies.js';
+import { PATHS, PATH_LEVEL } from '../data/paths.js';
 
 export const SAVE_KEY = 'wayfarers-tavern-save';
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export function newGame(seed, now = Date.now()) {
   return {
@@ -81,6 +82,20 @@ const MIGRATIONS = {
       s.codex.classes[a.cls] = true;
       s.codex.ancestries[a.ancestry] = true;
       for (const q of a.quirks) s.codex.quirks[q] = true;
+    }
+    return s;
+  },
+  // v5 -> v6: deeds and paths. Heroes past level 3 get to choose their path first.
+  5: (s) => {
+    const all = [...s.roster, ...((s.bar && s.bar.recruits) || [])];
+    for (const a of all) {
+      a.deeds = a.deeds || { kills: {}, falls: 0, injuries: 0, expeditions: 0, disasters: 0, finales: 0, saved: 0 };
+      a.deeds.falls = (a.history || []).filter((h) => /^Fell during/.test(h.text)).length;
+      a.path = a.path || null;
+      a.offered = a.offered || [];
+      if (a.level >= PATH_LEVEL && !a.path && PATHS[a.cls]) {
+        a.pendingTalents = [PATHS[a.cls].map((p) => `${p.id}1`), ...(a.pendingTalents || [])];
+      }
     }
     return s;
   },

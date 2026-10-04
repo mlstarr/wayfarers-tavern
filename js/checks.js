@@ -4,6 +4,7 @@ import { CLASSES } from '../data/classes.js';
 import * as T from '../data/report-templates.js';
 import * as A from './adventurers.js';
 import { line, actorVars, joinNames } from './reports.js';
+import { activeAuras, auraSum } from './auras.js';
 
 const MAX_ROUNDS = 5;
 
@@ -32,6 +33,17 @@ function situational(ctx, m, { skill, ability, attack, tags = [] }) {
   }
   if (!attack && skill && tv.skill) add(tv.skill, 'maps');
   if (ctx.isFinale && tv.finale) add(tv.finale, 'chapel');
+  if (ctx.isFinale) add(A.sumTrait(m.a, 'finale'), 'talent');
+  for (const a of activeAuras(ctx)) {
+    add(a.roll || 0, a.label);
+    if (!attack && skill) add(a.skill || 0, a.label);
+    if (attack) add(a.attack || 0, a.label);
+    if (ctx.isFinale) add(a.finale || 0, a.label);
+  }
+  if (attack) {
+    if (m.hp > 0 && m.hp < m.a.maxHp / 2) add(A.sumVs(m.a, 'bloodied', ['attack']), 'bloodied');
+    add(A.sumVs(m.a, 'atkVs', ctx.foeKeys || []), 'foe-hunter');
+  }
   for (const pm of ctx.partyMods) {
     const on = pm.finale ? ctx.isFinale : ctx.index >= pm.from && (pm.until == null || ctx.index <= pm.until);
     if (on) add(pm.mod, pm.label);
@@ -40,8 +52,16 @@ function situational(ctx, m, { skill, ability, attack, tags = [] }) {
 }
 
 // One d20 roll by a party member. Handles advantage, luck, nat 20s and 1s.
-export function roll(ctx, m, { label, skill = null, ability = null, base, dc, tags = [], attack = false }) {
-  const { plus, minus } = A.rollFactors(m.a, tags, attack);
+// Tags plus the pseudo-tags talents can name: the skill, 'attack' and 'finale'.
+export function factorTags(ctx, tags, skill, attack) {
+  return [...tags, ...(skill ? [skill] : []), ...(attack ? ['attack'] : []), ...(ctx.isFinale ? ['finale'] : [])];
+}
+
+export function roll(ctx, m, { label, skill = null, ability = null, base, dc, tags = [], attack = false, extraPlus = [] }) {
+  const ft = factorTags(ctx, tags, skill, attack);
+  const { plus, minus } = A.rollFactors(m.a, ft, attack);
+  plus.push(...extraPlus);
+  for (const a of activeAuras(ctx)) if (a.adv && a.adv.some((t) => ft.includes(t))) plus.push(a.label);
   if (ctx.packed.rope && (tags.includes('heights') || tags.includes('water'))) plus.push('rope');
   if (ctx.isFinale) {
     for (const f of ctx.finaleAdv) plus.push(f);
@@ -62,12 +82,18 @@ export function roll(ctx, m, { label, skill = null, ability = null, base, dc, ta
     notes.push('lucky reroll');
     extra = line(ctx.rng, T.LUCK_LINES, { ...actorVars(m.a), n: d });
   }
+  let nat = d === 20 ? 20 : d === 1 ? 1 : null;
+  if (!attack && skill && d < 10 && A.hasSpecial(m.a, 'reliable') && A.isProficient(m.a, skill)) {
+    d = 10;
+    nat = null;
+    notes.push('reliable');
+  }
   const total = d + bonus;
   const pass = d === 20 || (d !== 1 && total >= dc);
-  const nat = d === 20 ? 20 : d === 1 ? 1 : null;
+  const crit = attack && pass && d >= 20 - Math.min(3, A.sumTrait(m.a, 'crit'));
   if (nat === 20) ctx.nats[m.id].n20 += 1;
   if (nat === 1) ctx.nats[m.id].n1 += 1;
-  return { who: m.id, name: m.name, label, rolls, mode, d, bonus, total, dc, pass, nat, notes, extra };
+  return { who: m.id, name: m.name, label, rolls, mode, d, bonus, total, dc, pass, nat, crit, notes, extra };
 }
 
 export function natLine(ctx, m, r) {
@@ -83,6 +109,12 @@ export function natLine(ctx, m, r) {
 export function hurt(ctx, m, dmg, lines) {
   const wasUp = m.hp > 0;
   m.hp = Math.max(0, m.hp - dmg);
+  if (wasUp && m.hp === 0 && A.hasSpecial(m.a, 'unbroken') && !m.used.unbroken) {
+    m.used.unbroken = true;
+    m.hp = 1;
+    lines.push(`${m.name} went down, and refused to stay there.`);
+    return;
+  }
   // Devoted heroes get back up once per quest.
   if (wasUp && m.hp === 0 && A.isDevoted(m.a) && !m.used.rally) {
     m.used.rally = true;
@@ -97,6 +129,7 @@ function hazardDamage(ctx, def, m) {
   let dmg = rollDice(ctx.rng, def.hazard) + (ctx.tier - 1) * 2;
   for (const c of ctx.conds) dmg += c.hazardPlus || 0;
   if (A.hasFlag(m.a, 'evasion')) dmg = Math.floor(dmg / 2);
+  dmg -= A.sumTrait(m.a, 'hazardResist') + auraSum(ctx, 'hazard');
   return Math.max(1, dmg);
 }
 
@@ -104,12 +137,13 @@ function hazardDamage(ctx, def, m) {
 function tryInspire(ctx, r, lines) {
   if (r.pass || r.nat === 1) return;
   const bard = ctx.sim.find((s) => s.hp > 0 && s.id !== r.who && CLASSES[s.a.cls].perk === 'inspire'
-    && (s.used.inspire || 0) < (A.hasFlag(s.a, 'inspirePlus') ? 2 : 1));
+    && (s.used.inspire || 0) < (A.hasFlag(s.a, 'inspirePlus') ? 2 : 1) + A.sumTrait(s.a, 'perkUses'));
   if (!bard) return;
   const die = A.hasFlag(bard.a, 'inspirePlus') ? 8 : 6;
-  if (r.total + die < r.dc) return;
+  const more = A.sumTrait(bard.a, 'inspireBonus');
+  if (r.total + die + more < r.dc) return;
   bard.used.inspire = (bard.used.inspire || 0) + 1;
-  const n = ctx.rng.d(die);
+  const n = ctx.rng.d(die) + more;
   r.total += n;
   r.notes.push(`inspired +${n}`);
   if (r.total >= r.dc) r.pass = true;
@@ -118,7 +152,7 @@ function tryInspire(ctx, r, lines) {
 
 export function bestAt(ctx, members, skill, ability, tags = []) {
   const score = (m) => {
-    const { mode } = A.rollMode(m.a, tags);
+    const { mode } = A.rollMode(m.a, factorTags(ctx, tags, skill, false));
     return A.checkBonus(m.a, skill, ability) + (mode === 'adv' ? 4 : mode === 'dis' ? -4 : 0);
   };
   return members.reduce((best, m) => (score(m) > score(best) ? m : best), members[0]);
@@ -171,102 +205,3 @@ export function groupCheck(ctx, enc, def, alive, label) {
   return { success, lines, rolls };
 }
 
-// The monster as it shows up under the quest's conditions and dispatch choices.
-function fieldMonster(ctx, enc) {
-  const mon = { ...enc.monster };
-  for (const c of ctx.conds) {
-    if (c.undeadAtk && mon.tags.includes('undead')) { mon.atk += c.undeadAtk; mon.hp = Math.round(mon.hp * c.undeadHp); }
-    if (c.fireAc && (mon.tags.includes('beast') || mon.tags.includes('magic'))) mon.ac += c.fireAc;
-    if (c.venom && mon.tags.includes('spider')) mon.venom = c.venom;
-  }
-  if (ctx.isFinale && ctx.finaleHarder) mon.atk += ctx.finaleHarder;
-  return mon;
-}
-
-function attackOnce(ctx, m, mon, state, rolls, lines) {
-  const cls = CLASSES[m.a.cls];
-  const r = roll(ctx, m, { label: 'Attack', base: A.attackBonus(m.a), dc: mon.ac, tags: mon.tags, attack: true });
-  r.round = state.round;
-  if (r.extra) lines.push(r.extra);
-  if (r.pass) {
-    const crit = r.nat === 20;
-    let dmg = rollDice(ctx.rng, A.damageDice(m.a), crit) + A.mod(m.a.abilities[cls.attack]);
-    if (cls.perk === 'rage') dmg += 2;
-    if (A.hasFlag(m.a, 'favoredFoe') && mon.tags.includes('beast')) dmg += rollDice(ctx.rng, '1d6', crit);
-    if (ctx.packed.holyWater && mon.tags.includes('undead')) { dmg += rollDice(ctx.rng, '1d6', crit); r.notes.push('holy water'); }
-    const first = !state.firstHit[m.id];
-    state.firstHit[m.id] = true;
-    if (cls.perk === 'sneak' && first) {
-      dmg += rollDice(ctx.rng, A.hasFlag(m.a, 'sneakPlus') ? '3d6' : '1d6', crit);
-      r.notes.push('sneak attack');
-    }
-    if (cls.perk === 'smite') {
-      const radiant = A.hasFlag(m.a, 'smitePlus');
-      const undead = mon.tags.includes('undead');
-      if (first || (radiant && undead)) {
-        dmg += rollDice(ctx.rng, radiant || undead ? '3d8' : '2d8', crit);
-        r.notes.push('smite');
-      }
-    }
-    dmg = Math.max(1, dmg);
-    r.dmg = dmg;
-    state.mhp -= dmg;
-    state.dealt[m.id] = (state.dealt[m.id] || 0) + dmg;
-    if (crit && !state.critNoted) { state.critNoted = true; lines.push(line(ctx.rng, T.CRIT_LINES, actorVars(m.a))); }
-  } else if (r.nat === 1) {
-    lines.push(natLine(ctx, m, r));
-  }
-  if (r.nat === 20) natLine(ctx, m, r);
-  rolls.push(r);
-}
-
-export function combat(ctx, enc, def, alive) {
-  const mon = fieldMonster(ctx, enc);
-  const state = { mhp: mon.hp, dealt: {}, firstHit: {}, critNoted: false, round: 0 };
-  const rolls = [];
-  const lines = [];
-  let fallen = null;
-
-  while (state.round < MAX_ROUNDS && state.mhp > 0 && ctx.sim.some((s) => s.hp > 0)) {
-    state.round += 1;
-    for (const m of ctx.sim.filter((s) => s.hp > 0)) {
-      const swings = A.hasFlag(m.a, 'extraAttack') ? 2 : 1;
-      for (let s = 0; s < swings && state.mhp > 0; s++) attackOnce(ctx, m, mon, state, rolls, lines);
-    }
-    if (state.mhp <= 0) break;
-    for (let k = 0; k < mon.attacks; k++) {
-      const targets = ctx.sim.filter((s) => s.hp > 0);
-      if (!targets.length) break;
-      const t = ctx.rng.pick(targets);
-      const ac = A.armorClass(t.a) + (ctx.tavern.ac || 0);
-      const d = ctx.rng.d(20);
-      const pass = d === 20 || (d !== 1 && d + mon.atk >= ac);
-      const er = {
-        who: 'enemy', name: mon.name, label: `Attacks ${t.name}`, rolls: [d], d, bonus: mon.atk,
-        total: d + mon.atk, dc: ac, pass, nat: d === 20 ? 20 : d === 1 ? 1 : null, notes: [], enemy: true, round: state.round,
-      };
-      if (pass) {
-        let dmg = rollDice(ctx.rng, mon.dmg, d === 20);
-        if (mon.venom) { dmg += rollDice(ctx.rng, mon.venom); er.notes.push('venom'); }
-        if (A.hasFlag(t.a, 'damageResist')) dmg = Math.max(1, dmg - 2);
-        er.dmg = dmg;
-        hurt(ctx, t, dmg, lines);
-        if (t.hp === 0 && !fallen) fallen = t;
-      }
-      rolls.push(er);
-    }
-  }
-
-  const success = state.mhp <= 0;
-  let star;
-  if (success) {
-    const bestId = Object.entries(state.dealt).sort((a, b) => b[1] - a[1])[0]?.[0];
-    star = ctx.sim.find((s) => s.id === bestId) || alive[0];
-    ctx.defeated.push(mon.id);
-  } else {
-    star = fallen || alive[0];
-  }
-  const roundsText = `${state.round} round${state.round === 1 ? '' : 's'}`;
-  lines.unshift(`${line(ctx.rng, success ? def.success : def.fail, { ...actorVars(star.a), monster: mon.name })} (${roundsText})`);
-  return { success, lines: lines.filter(Boolean), rolls, monster: mon.name };
-}

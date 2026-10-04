@@ -2,7 +2,7 @@
 import { RANKS, UPGRADES } from '../data/tavern.js';
 import { WAGES, MAX_MISSED_PAYDAYS } from '../data/penalties.js';
 import { addLog } from './state.js';
-import { changeLoyalty, firstName } from './adventurers.js';
+import { changeLoyalty, firstName, sumTrait } from './adventurers.js';
 import { returnGear } from './gear.js';
 
 const HOUR = 3600000;
@@ -112,7 +112,7 @@ export function collectAle(state, now) {
 // ---- Wages ----
 
 export function wageOf(adv) {
-  return WAGES[adv.rarity] + Math.max(0, adv.level - 1);
+  return Math.max(0, WAGES[adv.rarity] + Math.max(0, adv.level - 1) + sumTrait(adv, 'wage'));
 }
 
 export function wagesDue(state) {

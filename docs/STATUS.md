@@ -1,10 +1,10 @@
 # Status
 
-Last updated: 2026-10-04 (tales and collections)
+Last updated: 2026-10-04 (paths and personal talents)
 
 ## Built
 **M1 core loop**
-- Seeded RNG, versioned save (now v5, with migrations from v1) and export/import.
+- Seeded RNG, versioned save (now v6, with migrations from v1) and export/import.
 - Adventurers: 6 ancestries, 8 classes with perks, 4d6-drop-lowest stats, backgrounds, 19 quirks with effects, 5 rarities.
 - Resolution: skill checks, group checks, combat rounds, advantage and disadvantage, luck, inspiration, healing, second wind, sneak attack, smite, rage. Outcomes from triumph to disaster.
 - Reports with every roll visible; bar recruits; resting; offline catch-up; card UI with heraldic shields.
@@ -47,8 +47,16 @@ Last updated: 2026-10-04 (tales and collections)
 - **Bestiary and codex** (`data/bestiary.js`, `js/collection.js`): 3 defeats of a foe studies it (+1 attack) and 10 masters it (+2), each step unlocking lore. The codex tracks monsters, towns, classes, ancestries, quirks, trophies, legends and legendary gear.
 - Set bonuses and foe knowledge are snapshotted per quest in `pending.tavern = questMods(state)`.
 
+**Growth: paths and personal talents** (save v6)
+- **Paths** (`data/paths.js`): at level 3 each hero picks one of three paths for their class (24 in all, such as Champion, Warden or Battle master for fighters). The first feature comes with the choice, the second at level 6 and the third at level 9 (`grantPathRanks`). Heroes already past level 3 get the path choice first when the save migrates.
+- **Personal talent pool** (`data/talents.js`, `data/talents-personal.js`): 222 talents. Every other level offers three choices, weighted toward what is personal to the hero: deeds 14, quirks 9, background 8, ancestry 6, class 3, general 1, rare 0.3 (more for rarer heroes). One slot is always personal when the hero has any personal option. Already-offered talents show up less often. Some general talents build on earlier ones (`requires`).
+- **Deeds** (`js/deeds.js`, `adv.deeds`): kills by monster and tag, falls, injuries, expeditions, disasters, final battles, allies healed, plus stats, bonds, legacy, goals and devotion. These unlock earned talents (for example Wolfbane, Death's old friend, A natural). The hero page shows "Deeds within reach" with progress.
+- **Quirk growth**: flaws can be overcome (Faced the dark removes Afraid of the dark) or sometimes embraced (Drunken master), from level 4.
+- **New effect fields** (listed in `js/talent-text.js`, which writes every description from the data): dmg, dmgVs, atkVs, crit, resist, hazardResist, lifesteal, bloodied, finale, firstStrike, perkUses, healBonus, inspireBonus, sneak, companion, taunt, retaliate, fearless, exposed, fatigue and fatigueResist, rest, wage, xpSelf, and party-wide `aura` effects (`js/auras.js`). Specials: unbroken, reliable, jack, layOnHands. Pseudo-tags 'attack', 'finale' and skill names work in adv lists.
+- Combat moved to `js/combat.js` (fieldMonster, companions, taunt, ambush, retaliation).
+
 ## How to test
-- `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, and prints the balance table.
+- `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, validates every talent, checks that 300 level-10 heroes all have different builds, and prints the balance table (rows marked +T level heroes with real paths and talents).
 - Open with `?fast` so game-minutes pass in seconds.
 
 ## Known limitations

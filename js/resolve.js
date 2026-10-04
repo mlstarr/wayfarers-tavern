@@ -9,7 +9,9 @@ import * as T from '../data/report-templates.js';
 import * as A from './adventurers.js';
 import { line, actorVars, checkLabel, fill } from './reports.js';
 import { buildEncounter, encounterTags } from './encounters.js';
-import { roll, skillCheck, groupCheck, combat, bestAt, hurt } from './checks.js';
+import { roll, skillCheck, groupCheck, bestAt, hurt } from './checks.js';
+import { combat } from './combat.js';
+import { partyAuras, auraSum, activeAuras } from './auras.js';
 import { dispatchVars, defaultOption } from './dispatch.js';
 import { buildTale } from './tale.js';
 
@@ -50,6 +52,9 @@ export function resolveQuest(quest, party, seed, opts = {}) {
     index: 0, half: 0, isFinale: false,
     tagsOf: (enc) => [...encounterTags(enc), ...extraTags],
   };
+  ctx.auras = partyAuras(sim);
+  ctx.goldMult += auraSum(ctx, 'gold', false);
+  ctx.xpMult += auraSum(ctx, 'xp', false);
 
   const queue = quest.encounters.map((e) => ({ ...e }));
   const dispatches = [...(opts.dispatches || [])].sort((a, b) => a.after - b.after);
@@ -223,23 +228,40 @@ function recover(ctx) {
       lines.push(`${s.name} touched the chapel charm and felt the blessing (+${n} HP).`);
     }
   }
+  for (const a of activeAuras(ctx).filter((x) => x.heal)) {
+    const hurtOnes = ctx.sim.filter((s) => s.hp > 0 && s.hp < s.a.maxHp);
+    if (!hurtOnes.length) continue;
+    for (const s of hurtOnes) s.hp = Math.min(s.a.maxHp, s.hp + a.heal);
+    const who = ctx.sim.find((s) => s.id === a.from);
+    lines.push(`${who.name}'s ${a.label} patched everyone up a little (+${a.heal} HP).`);
+  }
   for (const m of ctx.sim) {
-    if (m.hp > 0 && m.hp < m.a.maxHp / 2 && CLASSES[m.a.cls].perk === 'secondWind' && !m.used.secondWind) {
-      m.used.secondWind = true;
+    if (m.hp > 0 && m.hp < m.a.maxHp / 2 && CLASSES[m.a.cls].perk === 'secondWind'
+      && (m.used.secondWind || 0) < 1 + A.sumTrait(m.a, 'perkUses')) {
+      m.used.secondWind = (m.used.secondWind || 0) + 1;
       const n = Math.min(m.a.maxHp - m.hp, ctx.rng.d(10) + m.a.level);
       m.hp += n;
       lines.push(line(ctx.rng, T.SECOND_WIND_LINES, { ...actorVars(m.a), n }));
     }
   }
+  const paladin = ctx.sim.find((s) => s.hp > 0 && A.hasSpecial(s.a, 'layOnHands') && !s.used.layOnHands);
+  const lowest = ctx.sim.filter((s) => s.hp <= s.a.maxHp / 3).sort((a, b) => a.hp / a.a.maxHp - b.hp / b.a.maxHp)[0];
+  if (paladin && lowest) {
+    paladin.used.layOnHands = true;
+    const n = Math.max(1, Math.min(lowest.a.maxHp - lowest.hp, 2 * paladin.a.level));
+    lowest.hp += n;
+    if (lowest.id !== paladin.id) ctx.saves.push([paladin.id, lowest.id]);
+    lines.push(`${paladin.name} laid hands on ${lowest.id === paladin.id ? 'their own wounds' : lowest.name} (+${n} HP).`);
+  }
   const cleric = ctx.sim.find((s) => s.hp > 0 && CLASSES[s.a.cls].perk === 'heal'
-    && (s.used.heal || 0) < (A.hasFlag(s.a, 'healPlus') ? 2 : 1));
+    && (s.used.heal || 0) < (A.hasFlag(s.a, 'healPlus') ? 2 : 1) + A.sumTrait(s.a, 'perkUses'));
   if (cleric) {
     const target = ctx.sim
       .filter((s) => s.hp <= s.a.maxHp / 2)
       .sort((a, b) => a.hp / a.a.maxHp - b.hp / b.a.maxHp)[0];
     if (target) {
       cleric.used.heal = (cleric.used.heal || 0) + 1;
-      const n = Math.max(1, Math.min(target.a.maxHp - target.hp, ctx.rng.d(8) + A.mod(cleric.a.abilities.wis) + cleric.a.level));
+      const n = Math.max(1, Math.min(target.a.maxHp - target.hp, ctx.rng.d(8) + A.mod(cleric.a.abilities.wis) + cleric.a.level + A.sumTrait(cleric.a, 'healBonus')));
       target.hp += n;
       if (target.id !== cleric.id) ctx.saves.push([cleric.id, target.id]);
       lines.push(line(ctx.rng, T.HEAL_LINES, {

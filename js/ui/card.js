@@ -5,7 +5,7 @@ import { icon } from './icons.js';
 import { CLASSES } from '../../data/classes.js';
 import { ANCESTRIES } from '../../data/ancestries.js';
 import { QUIRKS } from '../../data/quirks.js';
-import { TALENTS } from '../../data/talents.js';
+import { talentChoice, talentItems, deedsInReach } from './talents.js';
 import { BACKGROUNDS } from '../../data/backgrounds.js';
 import { ABILITIES, ABILITY_SHORT, ABILITY_NAMES, SKILLS } from '../../data/skills.js';
 import { MAX_LOYALTY } from '../config.js';
@@ -89,16 +89,6 @@ export function miniShield(adv) {
   return h('span', { class: 'mini-shield', title: A.fullName(adv), html: shieldSvg(adv.seed, adv.cls) });
 }
 
-function talentChoice(adv, onChoose) {
-  const offer = (adv.pendingTalents || [])[0];
-  if (!offer || !onChoose) return null;
-  return h('div', { class: 'talent-choice' },
-    h('h3', null, `Level ${adv.level - adv.pendingTalents.length + 1}: choose a talent`),
-    h('div', { class: 'talent-options' }, offer.map((id, i) => h('button', {
-      class: 'talent-option', onclick: () => onChoose(i),
-    }, h('b', null, TALENTS[id].name), h('span', null, TALENTS[id].desc)))));
-}
-
 // state: needed for bonds. onChooseTalent(index): level-up choice handler.
 // onHeal(injuryId) and herbCost: the herbalist button for injuries.
 export function adventurerDetail(adv, { now = Date.now(), actions, state, onChooseTalent, onHeal, herbCost, onStory, onGear } = {}) {
@@ -133,7 +123,7 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
         h('div', { class: 'facts' },
           fact('Loyalty', h('span', { class: 'loyalty-fact' }, hearts(adv), ` ${A.loyaltyTier(adv).label}`)),
           fact('Armor class', A.armorClass(adv)),
-          fact('Attack', `${sign(A.attackBonus(adv))} · ${A.damageDice(adv)}`),
+          fact('Attack', `${sign(A.attackBonus(adv))} · ${A.damageDice(adv)}${A.sumTrait(adv, 'dmg') ? ` ${sign(A.sumTrait(adv, 'dmg'))}` : ''}${A.sumTrait(adv, 'crit') ? ` · crits on ${20 - Math.min(3, A.sumTrait(adv, 'crit'))}+` : ''}`),
           fact('Level', next ? `${adv.level} (${adv.xp}/${next} XP)` : `${adv.level} (max)`),
           fact('Quests', `${adv.stats.quests} · ${adv.stats.triumphs} triumphs`),
           fact('Natural 20s / 1s', `${adv.stats.nat20} / ${adv.stats.nat1}`),
@@ -174,10 +164,17 @@ export function adventurerDetail(adv, { now = Date.now(), actions, state, onChoo
       anc.trait ? h('li', null, h('b', null, `${anc.name}. `), anc.traitText) : null,
       adv.legendId ? h('li', { class: 'talent' }, h('b', null, `${LEGENDS[adv.legendId].signature.name}. `), LEGENDS[adv.legendId].signature.desc) : null,
       adv.legacy && state ? h('li', { class: 'talent' }, h('b', null, 'Legacy. '), storyStatus(adv).text.replace(/^Complete\. /, '')) : null,
-      (adv.talents || []).map((t) => h('li', { class: 'talent' }, h('b', null, `${TALENTS[t].name}. `), TALENTS[t].desc)),
+      talentItems(adv),
       adv.quirks.map((q) => h('li', { class: QUIRKS[q].tone }, h('b', null, `${QUIRKS[q].name}. `), QUIRKS[q].desc)),
       (adv.buffs || []).map((b) => h('li', { class: 'good' }, h('b', null, `${b.label}. `), `+${b.mod} to rolls on the next quest.`)),
       h('li', null, h('b', null, 'Trained in: '), profs.join(', '))),
+    (() => {
+      const extra = { friends: bonds.filter((b) => b.level.mod > 0).length, rivals: bonds.filter((b) => b.level.mod < 0).length };
+      const reach = adv.id ? deedsInReach(adv, extra) : [];
+      return reach.length ? [h('h3', null, 'Deeds within reach'),
+        h('p', { class: 'muted small' }, 'Talents this hero can earn by what they do on the road.'),
+        h('ul', { class: 'traits deeds' }, reach)] : null;
+    })(),
     bonds.length ? [h('h3', null, 'Bonds'),
       h('ul', { class: 'traits' }, bonds.filter((b) => nameOf(b.id)).map((b) =>
         h('li', { class: b.level.mod > 0 ? 'good' : 'bad' }, h('b', null, `${nameOf(b.id)}. `),

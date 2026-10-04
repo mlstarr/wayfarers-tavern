@@ -231,3 +231,24 @@
 .restock-note { margin: -4px 0 10px; }
 .toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 0; }
 .toggle input { width: 20px; height: 20px; accent-color: var(--ember); }
+
+/* Level-up talents: three personal options, and the level 3 path choice */
+.talent-options { grid-template-columns: 1fr; }
+@media (min-width: 640px) { .talent-options { grid-template-columns: repeat(3, 1fr); } }
+.talent-option .talent-src { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink2); }
+.talent-option.src-deed .talent-src { color: #8a4b12; }
+.talent-option.src-quirk .talent-src { color: #2f6b45; }
+.talent-option.src-rare .talent-src { color: var(--epic); }
+.talent-option.src-deed { box-shadow: inset 0 0 0 2px #c98a3a; }
+.talent-option.src-rare { box-shadow: inset 0 0 0 2px var(--epic); }
+.talent-option .talent-line { font-size: 13px; color: var(--ink2); }
+.path-options { display: grid; gap: 10px; }
+@media (min-width: 760px) { .path-options { grid-template-columns: repeat(3, 1fr); } }
+.path-option b { font-size: 17px; }
+.path-ranks { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.path-ranks li { display: grid; grid-template-columns: 38px 1fr; gap: 6px; font-size: 14px; color: var(--ink2); }
+.path-ranks li b { color: var(--ink); font-family: var(--body); font-size: 14px; }
+.rank-lvl { font-size: 12px; font-weight: 700; color: var(--ember); padding-top: 1px; }
+.traits .talent-src.inline { display: block; font-size: 12px; color: var(--text2); opacity: .8; }
+.traits li.talent.path b { color: var(--ember2); }
+.traits.deeds li b { color: var(--text); }

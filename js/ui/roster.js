@@ -1,4 +1,5 @@
 // The roster: every adventurer on the books.
+import { pathOf } from '../../data/paths.js';
 import { h, section, openSheet, toast } from './dom.js';
 import { adventurerCard, adventurerDetail } from './card.js';
 import { rosterCap } from '../tavern.js';
@@ -48,7 +49,7 @@ export function openDetail(ctx, advId) {
     onChooseTalent: (i) => {
       const t = ctx.chooseTalent(adv.id, i);
       if (t) {
-        toast(`${adv.name.split(' ')[0]} learned ${t.name.toLowerCase()}.`);
+        toast(t.path ? `${adv.name.split(' ')[0]} takes the path: ${pathOf(t.path).name}.` : `${adv.name.split(' ')[0]} learned ${t.name.toLowerCase()}.`);
         close();
         openDetail(ctx, adv.id);
       }

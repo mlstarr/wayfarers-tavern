@@ -7,7 +7,17 @@ import { resolveQuest } from '../js/resolve.js';
 import { generateAdventurer, applyRest, isAvailable } from '../js/adventurers.js';
 import { openDispatches, answerDispatch, planDispatches } from '../js/dispatch.js';
 import { refreshScenes, liveScenes, resolveScene } from '../js/scenes.js';
-import { chooseTalent } from '../js/talents.js';
+import { chooseTalent, eligible } from '../js/talents.js';
+import { TALENTS, TALENT_IDS } from '../data/talents.js';
+import { PATHS } from '../data/paths.js';
+import { talentText } from '../js/talent-text.js';
+import { SKILLS, ABILITIES } from '../data/skills.js';
+import { MONSTERS } from '../data/monsters.js';
+import { BACKGROUNDS } from '../data/backgrounds.js';
+import { QUIRKS } from '../data/quirks.js';
+import { ANCESTRIES } from '../data/ancestries.js';
+import { CLASSES } from '../data/classes.js';
+import { gainXp } from '../js/adventurers.js';
 import { assignGoal } from '../js/goals.js';
 import { MIN } from '../js/config.js';
 import { readyStories, playStory } from '../js/stories.js';
@@ -171,7 +181,7 @@ console.log(`      quest lengths sent, in minutes: ${firstLengths.slice(0, 24).j
 
 // 2. Save round trip
 const copy = importSave(exportSave(state));
-check(copy.roster.length === state.roster.length && copy.version === 5, 'save round-trips');
+check(copy.roster.length === state.roster.length && copy.version === 6, 'save round-trips');
 
 // 3. Migration from a version 1 save
 const v1 = JSON.parse(JSON.stringify(state));
@@ -179,7 +189,7 @@ v1.version = 1;
 delete v1.supplies; delete v1.bonds; delete v1.scenes;
 for (const a of v1.roster) { delete a.talents; delete a.pendingTalents; delete a.loyalty; delete a.buffs; delete a.goal; }
 const migrated = importSave(exportSave(v1));
-check(migrated.version === 5 && Array.isArray(migrated.stash) && migrated.tavern && migrated.bar.arrivals && migrated.supplies && migrated.roster.every((a) => Array.isArray(a.talents)), 'v1 save migrates');
+check(migrated.version === 6 && Array.isArray(migrated.stash) && migrated.tavern && migrated.bar.arrivals && migrated.supplies && migrated.roster.every((a) => Array.isArray(a.talents)), 'v1 save migrates');
 for (const a of migrated.roster) if (!a.goal) assignGoal(a);
 check(migrated.roster.every((a) => a.goal), 'migrated adventurers get goals');
 
@@ -192,8 +202,9 @@ const r1 = resolveQuest(q, partyA, 99, { dispatches: ds, packed: { torches: 1 } 
 const r2 = resolveQuest(q, partyA, 99, { dispatches: ds, packed: { torches: 1 } });
 check(JSON.stringify(r1) === JSON.stringify(r2), 'same seed and choices give the same result');
 
-// 5. Balance: outcome spread by tier and party level (no supplies, default dispatches)
-for (const level of [1, 3, 5]) {
+// 5. Balance: outcome spread by tier and party level (no supplies, default dispatches).
+// The "+T" rows level heroes properly, with paths and talents chosen.
+for (const [level, withTalents] of [[1, false], [3, false], [3, true], [5, false], [5, true]]) {
   for (const tier of [1, 2, 3]) {
     const t = { triumph: 0, success: 0, costly: 0, failure: 0, disaster: 0 };
     let downs = 0;
@@ -204,7 +215,10 @@ for (const level of [1, 3, 5]) {
       const party = Array.from({ length: size }, (_, k) => {
         const a = generateAdventurer(rng.fork(`a${k}`));
         a.id = `b${k}`;
-        for (let l = 1; l < level; l++) { a.level += 1; a.maxHp += 6; }
+        if (withTalents) {
+          gainXp(a, [0, 0, 250, 0, 700][level - 1]);
+          while (a.pendingTalents.length) chooseTalent(a, (i + k) % a.pendingTalents[0].length);
+        } else for (let l = 1; l < level; l++) { a.level += 1; a.maxHp += 6; }
         a.hp = a.maxHp;
         return a;
       });
@@ -213,9 +227,37 @@ for (const level of [1, 3, 5]) {
       downs += res.downed.length;
     }
     const pct = (n) => `${Math.round(n / 4)}%`.padStart(4);
-    console.log(`L${level} T${tier}: triumph ${pct(t.triumph)} success ${pct(t.success)} costly ${pct(t.costly)} failure ${pct(t.failure)} disaster ${pct(t.disaster)} | falls/quest ${(downs / 400).toFixed(2)}`);
+    console.log(`L${level}${withTalents ? '+T' : '  '} T${tier}: triumph ${pct(t.triumph)} success ${pct(t.success)} costly ${pct(t.costly)} failure ${pct(t.failure)} disaster ${pct(t.disaster)} | falls/quest ${(downs / 400).toFixed(2)}`);
   }
 }
+
+// 6. Talents: data is valid, every hero has choices, and builds differ.
+const TAGS = new Set(['undead', 'beast', 'dark', 'water', 'magic', 'heights', 'spider', 'social', 'finale', 'attack', ...Object.keys(MONSTERS)]);
+const keysOk = (o) => Object.keys(o || {}).every((k) => SKILLS[k] || ABILITIES.includes(k));
+for (const id of TALENT_IDS) {
+  const t = TALENTS[id];
+  const ok = talentText(t).length > 3 && keysOk(t.mods)
+    && [...(t.adv || []), ...(t.dis || []), ...((t.aura || {}).adv || []), ...Object.keys(t.dmgVs || {}), ...Object.keys(t.atkVs || {})].every((x) => TAGS.has(x) || SKILLS[x])
+    && (!t.bg || BACKGROUNDS.some((b) => b.id === t.bg)) && (!t.quirk || QUIRKS[t.quirk]) && (!t.ancestry || ANCESTRIES[t.ancestry])
+    && (!t.requires || TALENTS[t.requires]) && (!t.classes || t.classes.every((c) => CLASSES[c]));
+  check(ok, `talent ${id} is valid`);
+}
+check(Object.keys(CLASSES).every((c) => PATHS[c] && PATHS[c].length === 3), 'every class has three paths');
+const builds = new Set();
+let minPool = 99;
+for (let i = 0; i < 300; i++) {
+  const a = generateAdventurer(new Rng(5000 + i));
+  a.id = `v${i}`;
+  for (let l = 2; l <= 10; l++) {
+    gainXp(a, 1000000);
+    while (a.pendingTalents.length) { check(a.pendingTalents[0].length > 0, 'offer not empty'); chooseTalent(a, i % a.pendingTalents[0].length); }
+  }
+  minPool = Math.min(minPool, TALENT_IDS.filter((id) => eligible(a, id, {})).length);
+  check(a.path && a.talents.includes(`${a.path}3`), 'level 10 hero has all three path features');
+  builds.add([...a.talents].sort().join());
+}
+console.log(`talents: ${TALENT_IDS.length} in all, ${builds.size} distinct builds from 300 level-10 heroes, smallest remaining pool ${minPool}`);
+check(builds.size >= 295, 'level-10 builds are nearly all unique');
 
 console.log(failures ? `${failures} check(s) failed` : 'All checks passed');
 process.exit(failures ? 1 : 0);
