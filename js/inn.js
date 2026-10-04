@@ -3,6 +3,7 @@ import { Rng, seedFrom } from './rng.js';
 import { BAR_SIZE, ROSTER_CAP } from './config.js';
 import { generateAdventurer, addHistory, fullName } from './adventurers.js';
 import { nextId, addLog } from './state.js';
+import { SUPPLIES } from '../data/supplies.js';
 
 export const HIRE_COST = { common: 20, uncommon: 45, rare: 90, epic: 180, legendary: 350 };
 
@@ -71,4 +72,14 @@ export function startingParty(state, now) {
     addHistory(adv, 'One of the tavern\'s first regulars.', now);
     state.roster.push(adv);
   }
+}
+
+// The quartermaster: supplies for the road.
+export function buySupply(state, id, now) {
+  const s = SUPPLIES[id];
+  if (!s) return { ok: false, reason: 'Unknown supply' };
+  if (state.gold < s.cost) return { ok: false, reason: 'Not enough gold' };
+  state.gold -= s.cost;
+  state.supplies[id] = (state.supplies[id] || 0) + 1;
+  return { ok: true, supply: s, count: state.supplies[id], at: now };
 }

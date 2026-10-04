@@ -35,7 +35,9 @@ Target feel: a tabletop campaign you run from the bar. Warm, a little funny, occ
 | Long session | 30 min+ | Hands-on dungeon delve, plan long expeditions, restructure the roster | Legendary loot, region unlocks, hero legends |
 | Weekly | Ongoing | Rotating events: a festival, a dragon sighting, a plague in the next town | Limited-time recruits and items |
 
-Quest lengths run from 15 minutes to 12 hours. Offline progress resolves on return from saved timestamps. No streak penalties.
+Quest lengths: Easy 2 to 10 minutes, Risky 12 to 60, Deadly 1 to 4 hours, Expeditions 6 to 12 hours with bigger rewards. Within a tier, more encounters means a longer quest. Postings expire and are replaced through the day. Offline progress resolves on return from saved timestamps. No streak penalties.
+
+**Things to do on a check-in:** answer messengers from parties on the road (dispatch choices), handle common-room scenes, pick level-up talents, pack supplies against quest conditions, and read reports.
 
 ## Core loop
 
@@ -80,7 +82,11 @@ A quest is a chain of 3 to 6 encounters, each resolved by visible d20 checks.
 
 **The report:** an animated log the player can tap through or skip, with each roll shown (d20 + modifier vs DC), written from templates filled with names and quirks. Notable moments go into each adventurer's history.
 
-**Timing:** the outcome is rolled at send time from a seed and revealed when the timer ends (trivial offline progress, no save-scumming). Parties can be recalled early for partial rewards (later milestone).
+**Timing:** the seed is fixed at send time; the quest resolves at return using that seed plus the player's dispatch choices (deterministic, no save-scumming).
+
+**Dispatches:** a messenger arrives partway through quests of 5+ minutes with a choice (take the old trail, let the ranger find a way around). Unanswered, the party takes its default.
+
+**Conditions and supplies:** quests carry conditions (night, rain, cold, cursed ground, venom, long road, fears fire). Supplies bought from the quartermaster counter them. Parties can be recalled early for partial rewards (later milestone).
 
 ## The Inn
 
@@ -124,10 +130,12 @@ Static browser game on GitHub Pages: plain HTML, CSS and JS modules. See `docs/C
 
 ```
 wayfarers-tavern/
-  index.html  style.css
-  js/   main.js state.js config.js rng.js adventurers.js inn.js quests.js resolve.js reports.js
+  index.html  style.css  systems.css
+  js/   main.js state.js config.js rng.js adventurers.js talents.js goals.js bonds.js inn.js quests.js
+        encounters.js resolve.js checks.js dispatch.js scenes.js reports.js
         ui/  dom.js icons.js heraldry.js card.js tavern.js board.js roster.js bar.js report.js settings.js
-  data/ skills.js classes.js ancestries.js names.js backgrounds.js quirks.js monsters.js encounters.js quests.js report-templates.js
+  data/ skills.js classes.js ancestries.js names.js backgrounds.js quirks.js talents.js goals.js monsters.js
+        encounters.js quests.js supplies.js dispatches.js scenes.js report-templates.js
   tools/smoke.mjs
   docs/ DESIGN.md CONVENTIONS.md STATUS.md
 ```

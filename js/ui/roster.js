@@ -8,9 +8,13 @@ export function renderRoster(ctx) {
   const { state } = ctx;
   const now = Date.now();
   const order = { questing: 1, idle: 0 };
-  const list = [...state.roster].sort((a, b) => order[a.status] - order[b.status] || b.level - a.level);
+  const list = [...state.roster].sort((a, b) =>
+    (b.pendingTalents || []).length - (a.pendingTalents || []).length || order[a.status] - order[b.status] || b.level - a.level);
+  const leveling = state.roster.filter((a) => (a.pendingTalents || []).length);
   return h('div', { class: 'screen roster' },
     section('Roster', `${state.roster.length} of ${ROSTER_CAP} beds`,
+      leveling.length ? h('p', { class: 'notice' },
+        `${leveling.map((a) => a.name.split(' ')[0]).join(', ')} leveled up. Tap to choose a talent.`) : null,
       h('div', { class: 'grid' }, list.map((a) => adventurerCard(a, { now, onClick: () => openDetail(ctx, a.id) })))));
 }
 
@@ -31,5 +35,16 @@ export function openDetail(ctx, advId) {
         if (ctx.dismiss(adv.id)) { close(); toast(`${fullName(adv)} has left the company.`); }
       },
     }, 'Dismiss from the company')) : null;
-  close = openSheet(adventurerDetail(adv, { actions }), { title: fullName(adv), wide: true });
+  close = openSheet(adventurerDetail(adv, {
+    actions,
+    state: ctx.state,
+    onChooseTalent: (i) => {
+      const t = ctx.chooseTalent(adv.id, i);
+      if (t) {
+        toast(`${adv.name.split(' ')[0]} learned ${t.name.toLowerCase()}.`);
+        close();
+        openDetail(ctx, adv.id);
+      }
+    },
+  }), { title: fullName(adv), wide: true });
 }

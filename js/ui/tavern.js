@@ -1,8 +1,37 @@
-// Home screen: who's back, who's out, and what's been happening.
+// Home screen: messengers, common-room scenes, returns, parties on the road.
 import { h, section, countdown, fmtAgo, fmtSpan } from './dom.js';
 import { icon } from './icons.js';
 import { miniShield } from './card.js';
 import { isReturned } from '../quests.js';
+import { openDispatches, describeDispatch } from '../dispatch.js';
+import { liveScenes, describeScene } from '../scenes.js';
+
+function dispatchCard(ctx, p, d) {
+  const info = describeDispatch(d);
+  return h('article', { class: 'dispatch-card' },
+    h('div', { class: 'dispatch-head' },
+      h('span', { class: 'seal small', html: icon('scroll') }),
+      h('span', { class: 'dispatch-title' }, h('b', null, 'A messenger arrives'), h('span', { class: 'muted small' }, p.quest.title)),
+      h('span', { class: 'timer small', title: 'Answer before the party returns' }, countdown(p.endAt, 'now'))),
+    h('p', { class: 'dispatch-text' }, info.text),
+    h('div', { class: 'options' }, info.options.map((o) => h('button', {
+      class: 'option', onclick: () => ctx.decide(p.id, d.id, o.index),
+    },
+    h('b', null, o.label, o.isDefault ? h('span', { class: 'muted small' }, ' · their plan if you stay silent') : null),
+    h('span', { class: 'muted' }, o.desc)))));
+}
+
+function sceneCard(ctx, s) {
+  const info = describeScene(ctx.state, s);
+  const actors = s.actors.map((id) => ctx.state.roster.find((a) => a.id === id)).filter(Boolean);
+  return h('article', { class: 'scene-card panel' },
+    h('div', { class: 'scene-head' }, actors.map((a) => miniShield(a)), h('p', null, info.text)),
+    h('div', { class: 'scene-choices' }, info.choices.map((c) => h('button', {
+      class: 'btn small',
+      disabled: c.cost && ctx.state.gold < c.cost ? true : null,
+      onclick: () => ctx.playScene(s.id, c.index),
+    }, c.label, c.cost ? h('span', { class: 'cost', html: `${icon('coin')}${c.cost}` }) : null))));
+}
 
 export function renderTavern(ctx) {
   const { state } = ctx;
@@ -10,8 +39,15 @@ export function renderTavern(ctx) {
   const back = state.pending.filter((p) => isReturned(p, now));
   const out = state.pending.filter((p) => !isReturned(p, now)).sort((a, b) => a.endAt - b.endAt);
   const partyOf = (p) => p.party.map((id) => state.roster.find((a) => a.id === id)).filter(Boolean);
+  const messages = openDispatches(state, now);
+  const scenes = liveScenes(state);
 
   const root = h('div', { class: 'screen tavern' });
+
+  if (messages.length) {
+    root.append(section('Word from the road', null,
+      h('div', { class: 'list two' }, messages.map((m) => dispatchCard(ctx, m.pending, m.dispatch)))));
+  }
 
   if (back.length) {
     root.append(section('Back from the road', null,
@@ -29,18 +65,28 @@ export function renderTavern(ctx) {
     root.append(section('On the road', `${out.length} part${out.length === 1 ? 'y' : 'ies'} out`,
       h('div', { class: 'list two' }, out.map((p) => {
         const total = p.endAt - p.startAt;
+        const nextMsg = (p.dispatches || []).find((d) => d.choice == null && d.at > now);
+        const answered = (p.dispatches || []).filter((d) => d.choice != null).length;
         return h('div', { class: 'road-card panel' },
           h('div', { class: 'road-top' },
             h('b', null, p.quest.title),
             h('span', { class: 'timer', html: icon('clock') }, countdown(p.endAt, 'back now'))),
           h('div', { class: 'road-party' }, partyOf(p).map((a) => miniShield(a))),
           h('div', { class: 'progress', 'data-start': p.startAt, 'data-end': p.endAt },
-            h('i', { style: `width:${Math.min(100, ((now - p.startAt) / total) * 100)}%` })),
-          h('span', { class: 'muted small' }, `${fmtSpan(p.quest.duration)} quest`));
+            h('i', { style: `width:${Math.min(100, ((now - p.startAt) / total) * 100)}%` }),
+            (p.dispatches || []).map((d) => h('b', { class: `pip${d.choice != null ? ' done' : ''}`, style: `left:${((d.at - p.startAt) / total) * 100}%` }))),
+          h('span', { class: 'muted small' },
+            `${fmtSpan(p.quest.duration)} quest`,
+            nextMsg ? [' · messenger in ', countdown(nextMsg.at, 'moments')] : answered ? ` · ${answered} message${answered > 1 ? 's' : ''} answered` : ''));
       }))));
   }
 
-  if (!back.length && !out.length) {
+  if (scenes.length) {
+    root.append(section('In the common room', null,
+      h('div', { class: 'list two' }, scenes.map((s) => sceneCard(ctx, s)))));
+  }
+
+  if (!back.length && !out.length && !messages.length) {
     root.append(h('div', { class: 'empty panel' },
       h('div', { class: 'empty-art', html: icon('tavern') }),
       h('h2', null, 'The tables are quiet'),

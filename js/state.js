@@ -1,8 +1,9 @@
 // Game state shape, save/load and migrations. The only module that touches storage.
-import { START_GOLD } from './config.js';
+import { START_GOLD, START_LOYALTY } from './config.js';
+import { STARTING_SUPPLIES } from '../data/supplies.js';
 
 export const SAVE_KEY = 'wayfarers-tavern-save';
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 export function newGame(seed, now = Date.now()) {
   return {
@@ -15,8 +16,11 @@ export function newGame(seed, now = Date.now()) {
     roster: [],       // adventurers
     pending: [],      // quests in progress: { id, quest, party, startAt, endAt, result }
     reports: [],      // archive of collected reports, newest first
-    board: { epoch: null, quests: [] },
+    board: { quests: [], refills: [], counter: 0 },
     bar: { epoch: null, recruits: [] },
+    supplies: { ...STARTING_SUPPLIES },
+    bonds: {},        // 'a1|a2' -> number
+    scenes: { slot: null, list: [] },
     log: [],          // { at, text }, newest first
     stats: { questsSent: 0, questsDone: 0, triumphs: 0, goldEarned: 0 },
     settings: {},
@@ -24,7 +28,24 @@ export function newGame(seed, now = Date.now()) {
 }
 
 // version -> function upgrading a save from that version to the next
-const MIGRATIONS = {};
+const MIGRATIONS = {
+  // v1 -> v2: rolling board, supplies, bonds, scenes, talents, loyalty, goals
+  1: (s) => {
+    s.board = { quests: [], refills: [], counter: 0 };
+    s.supplies = { ...STARTING_SUPPLIES };
+    s.bonds = {};
+    s.scenes = { slot: null, list: [] };
+    for (const a of [...s.roster, ...(s.bar.recruits || [])]) {
+      a.talents = a.talents || [];
+      a.pendingTalents = a.pendingTalents || [];
+      a.loyalty = a.loyalty ?? START_LOYALTY;
+      a.buffs = a.buffs || [];
+      a.goal = a.goal || null; // assigned on load
+      a.goalsDone = a.goalsDone || 0;
+    }
+    return s;
+  },
+};
 
 function migrate(state) {
   let s = state;

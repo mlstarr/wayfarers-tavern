@@ -1,11 +1,11 @@
 // tiers: tiers this quest can appear at. pool: optional encounters, `count` picked.
 // finale: final encounter (string, array to pick one, or null). party: [min, max].
-// Text tokens: {town}, {farm}
+// expedition: long, rich quests (6 to 12 hours). Text tokens: {town}, {farm}
 export const QUEST_TEMPLATES = [
   {
     id: 'wolves', title: 'Wolves at {farm}', tiers: [1, 2],
     blurb: 'Something has been taking sheep from {farm}. The farmer suspects wolves and is not wrong.',
-    pool: ['trail', 'brambles', 'river', 'ambush'], count: [2, 3], finale: 'fightWolves', party: [2, 4],
+    pool: ['trail', 'brambles', 'river', 'ambush'], count: [1, 3], finale: 'fightWolves', party: [2, 4],
   },
   {
     id: 'caravan', title: 'The missing caravan', tiers: [1, 2, 3],
@@ -15,7 +15,7 @@ export const QUEST_TEMPLATES = [
   {
     id: 'herbs', title: 'Moonpetal for the apothecary', tiers: [1, 2],
     blurb: 'The apothecary in {town} needs moonpetal, which grows only where sensible people do not go.',
-    pool: ['brambles', 'trail', 'river', 'bridge', 'shrine', 'cave'], count: [3, 4], finale: null, party: [1, 3],
+    pool: ['brambles', 'trail', 'river', 'bridge', 'shrine', 'cave'], count: [2, 4], finale: null, party: [1, 3],
   },
   {
     id: 'scout', title: 'Find the lost scout', tiers: [1, 2, 3],
@@ -26,7 +26,12 @@ export const QUEST_TEMPLATES = [
   {
     id: 'boar', title: 'The great boar of {farm}', tiers: [1, 2],
     blurb: 'A boar the size of a cart has flattened two fences and one very surprised farmer.',
-    pool: ['trail', 'brambles', 'villagers'], count: [2, 2], finale: 'fightBoar', party: [2, 3],
+    pool: ['trail', 'brambles', 'villagers'], count: [1, 2], finale: 'fightBoar', party: [2, 3],
+  },
+  {
+    id: 'debt', title: 'A debt in {town}', tiers: [1],
+    blurb: 'A merchant in {town} wants a reluctant customer reminded, politely, that bills get paid.',
+    pool: ['villagers', 'toll', 'strongbox'], count: [2, 3], finale: null, party: [1, 2],
   },
   {
     id: 'spider', title: 'The webbed hollow', tiers: [2, 3],
@@ -43,14 +48,29 @@ export const QUEST_TEMPLATES = [
     blurb: 'The hedge-wizard near {town} has not been seen in a month, and her garden has started moving.',
     pool: ['ward', 'map', 'carvings', 'strongbox', 'bridge'], count: [2, 3], finale: 'fightHorror', party: [2, 4],
   },
+
+  // Expeditions
+  {
+    id: 'deepwood', title: 'Expedition: the heart of the Thornwood', tiers: [1, 2, 3], expedition: true,
+    blurb: 'Nobody has mapped the deep wood in a generation. The cartographers of {town} will pay handsomely for the attempt.',
+    pool: ['trail', 'brambles', 'river', 'bridge', 'cave', 'shrine', 'ambush', 'map', 'march', 'fightWolves'],
+    count: [4, 5], finale: ['fightSpider', 'fightHorror'], party: [3, 4],
+  },
+  {
+    id: 'saltroad', title: 'Expedition: guard the salt caravan', tiers: [1, 2, 3], expedition: true,
+    blurb: 'A salt caravan bound for the coast needs guards for the whole road out of {town}, there and back.',
+    pool: ['toll', 'ambush', 'march', 'river', 'villagers', 'strongbox', 'fightBoar', 'carvings'],
+    count: [4, 5], finale: 'fightBandits', party: [3, 4],
+  },
 ];
 
-// Minutes. Longer quests pay more.
+// Game-minutes. Within a tier, quests with more encounters take longer.
 export const TIER_DURATIONS = {
-  1: [15, 30, 45, 60],
-  2: [60, 90, 120, 240],
-  3: [240, 360, 480, 720],
+  1: [2, 3, 4, 5, 8, 10],
+  2: [12, 15, 20, 30, 45, 60],
+  3: [60, 90, 120, 180, 240],
 };
+export const EXPEDITION_DURATIONS = [360, 480, 600, 720];
 
 export const TIER_NAMES = { 1: 'Easy', 2: 'Risky', 3: 'Deadly' };
 

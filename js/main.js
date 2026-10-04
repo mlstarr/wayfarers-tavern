@@ -2,9 +2,13 @@
 import { newGame, load, save, importSave, addLog } from './state.js';
 import { newSeed } from './rng.js';
 import { refreshBoard, sendParty, collectQuest, isReturned } from './quests.js';
-import { refreshBar, hire, dismiss, startingParty } from './inn.js';
+import { refreshBar, hire, dismiss, startingParty, buySupply } from './inn.js';
 import { applyRest, fullName } from './adventurers.js';
-import { fmtSpan, fmtCountdown, openSheet, toast } from './ui/dom.js';
+import { openDispatches, answerDispatch } from './dispatch.js';
+import { refreshScenes, liveScenes, resolveScene } from './scenes.js';
+import { chooseTalent } from './talents.js';
+import { assignGoal } from './goals.js';
+import { fmtSpan, fmtCountdown, openSheet, toast, h } from './ui/dom.js';
 import { icon } from './ui/icons.js';
 import { renderTavern } from './ui/tavern.js';
 import { renderBoard } from './ui/board.js';
@@ -13,6 +17,7 @@ import { renderBar } from './ui/bar.js';
 import { openReport } from './ui/report.js';
 import { openSettings } from './ui/settings.js';
 import { adventurerDetail } from './ui/card.js';
+import { formatRoll } from './reports.js';
 
 const TABS = [
   { id: 'tavern', label: 'Tavern', render: renderTavern },
@@ -23,7 +28,7 @@ const TABS = [
 
 let state;
 let tab = 'tavern';
-let lastReady = 0;
+let lastAlerts = '';
 
 function freshGame() {
   const now = Date.now();
@@ -33,36 +38,69 @@ function freshGame() {
   return s;
 }
 
-// Board and bar refreshes, resting, returns. Returns true if anything changed.
+function alerts(now = Date.now()) {
+  return {
+    ready: state.pending.filter((p) => isReturned(p, now)).length,
+    messages: openDispatches(state, now).length,
+    scenes: liveScenes(state).length,
+    talents: state.roster.filter((a) => (a.pendingTalents || []).length).length,
+  };
+}
+
+// Board, bar, scenes, resting, returns, messengers. Returns true if anything changed.
 function maintenance() {
   const now = Date.now();
   let changed = refreshBoard(state, now);
   changed = refreshBar(state, now) || changed;
-  for (const a of state.roster) changed = applyRest(a, now) || changed;
-  const ready = state.pending.filter((p) => isReturned(p, now)).length;
-  if (ready !== lastReady) { lastReady = ready; changed = true; }
+  changed = refreshScenes(state, now) || changed;
+  for (const a of state.roster) {
+    changed = applyRest(a, now) || changed;
+    if (!a.goal) { assignGoal(a); changed = true; }
+  }
+  const sig = JSON.stringify(alerts(now));
+  if (sig !== lastAlerts) { lastAlerts = sig; changed = true; }
   if (changed) save(state);
   return changed;
 }
 
+function commit() { save(state); lastAlerts = JSON.stringify(alerts()); render(); }
+
 const ctx = {
   get state() { return state; },
   go(id) { tab = id; render(); window.scrollTo({ top: 0 }); },
-  send(questId, advIds) {
-    const res = sendParty(state, questId, advIds, Date.now());
+  send(questId, advIds, packed) {
+    const res = sendParty(state, questId, advIds, packed, Date.now());
     if (res.ok) {
-      save(state);
-      toast(`The party set out. Back in ${fmtSpan(res.pending.quest.duration)}.`);
-      ctx.go('tavern');
+      const msgs = res.pending.dispatches.length;
+      toast(`The party set out. Back in ${fmtSpan(res.pending.quest.duration)}.${msgs ? ' Watch for a messenger.' : ''}`);
+      tab = 'tavern';
+      commit();
     }
     return res;
+  },
+  decide(pendingId, dispatchId, index) {
+    if (answerDispatch(state, pendingId, dispatchId, index, Date.now())) {
+      toast('The messenger rides back with your answer.');
+      commit();
+    } else toast('Too late: the party has already moved on.');
+  },
+  playScene(sceneId, index) {
+    const out = resolveScene(state, sceneId, index, Date.now());
+    if (out.error) { toast(out.error); return; }
+    commit();
+    if (!out.roll && !out.notes.length) { toast(out.text); return; }
+    openSheet(h('div', { class: 'scene-result' },
+      out.roll ? h('div', { class: `roll ${out.roll.pass ? 'pass' : 'fail'}${out.roll.d === 20 ? ' n20' : out.roll.d === 1 ? ' n1' : ''}` },
+        h('span', { class: 'roll-who' }, `${out.roll.name} · ${out.roll.label}`),
+        h('span', { class: 'roll-math' }, formatRoll({ rolls: [out.roll.d], bonus: out.roll.bonus, total: out.roll.total, dc: out.roll.dc }), out.roll.pass ? ' ✓' : ' ✗')) : null,
+      h('p', { class: 'enc-line' }, out.text),
+      out.gold ? h('p', { class: 'muted' }, `${out.gold > 0 ? '+' : ''}${out.gold} gold`) : null,
+      out.notes.map((t) => h('p', { class: 'muted' }, t))), { title: 'In the common room' });
   },
   openReturn(pendingId) {
     const record = collectQuest(state, pendingId, Date.now());
     if (!record) return;
-    save(state);
-    lastReady = state.pending.filter((p) => isReturned(p, Date.now())).length;
-    render();
+    commit();
     openReport(record);
   },
   openArchived(id) {
@@ -71,12 +109,22 @@ const ctx = {
   },
   hire(recruitId) {
     const res = hire(state, recruitId, Date.now());
-    if (res.ok) { save(state); toast(`${fullName(res.adv)} joined the company.`); render(); } else toast(res.reason);
+    if (res.ok) { toast(`${fullName(res.adv)} joined the company.`); commit(); } else toast(res.reason);
+  },
+  buy(id) {
+    const res = buySupply(state, id, Date.now());
+    if (res.ok) { toast(`Bought ${res.supply.name.toLowerCase()}. You have ${res.count}.`); commit(); } else toast(res.reason);
   },
   dismiss(advId) {
     const ok = dismiss(state, advId, Date.now());
-    if (ok) { save(state); render(); }
+    if (ok) commit();
     return ok;
+  },
+  chooseTalent(advId, index) {
+    const adv = state.roster.find((a) => a.id === advId);
+    const t = adv && chooseTalent(adv, index);
+    if (t) commit();
+    return t;
   },
   inspectRecruit(id) {
     const a = state.bar.recruits.find((r) => r.id === id);
@@ -84,33 +132,34 @@ const ctx = {
   },
   importGame(text) {
     state = importSave(text);
-    save(state);
     maintenance();
-    render();
+    commit();
   },
   newGame() {
     state = freshGame();
-    save(state);
-    maintenance();
     tab = 'tavern';
-    render();
+    maintenance();
+    commit();
   },
 };
 
 function renderChrome() {
-  const ready = state.pending.filter((p) => isReturned(p, Date.now())).length;
+  const al = alerts();
   document.getElementById('purse').innerHTML =
     `<span class="gold" title="Gold">${icon('coin')}${state.gold}</span><span class="renown" title="Renown">${icon('renown')}${state.renown}</span>`;
+  const dots = { tavern: al.ready + al.messages, roster: al.talents };
   const nav = document.getElementById('tabs');
   nav.replaceChildren(...TABS.map((t) => {
     const b = document.createElement('button');
     b.className = `tab${t.id === tab ? ' active' : ''}`;
     b.setAttribute('aria-current', t.id === tab ? 'page' : 'false');
-    b.innerHTML = `${icon(t.id)}<span>${t.label}</span>${t.id === 'tavern' && ready ? `<i class="dot" aria-label="${ready} reports waiting"></i>` : ''}`;
+    const n = dots[t.id] || 0;
+    b.innerHTML = `${icon(t.id)}<span>${t.label}</span>${n ? `<i class="dot" aria-label="${n} waiting"></i>` : ''}`;
     b.onclick = () => ctx.go(t.id);
     return b;
   }));
-  document.title = ready ? `(${ready}) Wayfarer's Tavern` : 'Wayfarer\'s Tavern';
+  const waiting = al.ready + al.messages;
+  document.title = waiting ? `(${waiting}) Wayfarer's Tavern` : 'Wayfarer\'s Tavern';
 }
 
 function render() {
@@ -140,7 +189,7 @@ function boot() {
   render();
   document.getElementById('settings-btn').onclick = () => openSettings(ctx);
   setInterval(tick, 1000);
-  setInterval(() => { if (maintenance()) render(); }, 5000);
+  setInterval(() => { if (maintenance()) render(); }, 3000);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) { maintenance(); render(); }
   });

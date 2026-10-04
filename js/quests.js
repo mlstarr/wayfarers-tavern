@@ -1,27 +1,20 @@
 // Quest generation, the quest board, sending parties and collecting results.
 import { Rng, seedFrom } from './rng.js';
-import { MIN, BOARD_SIZE, BOARD_HOURS, TIER_RENOWN, REPORT_ARCHIVE } from './config.js';
-import { QUEST_TEMPLATES, TIER_DURATIONS, PLACES } from '../data/quests.js';
+import {
+  MIN, BOARD_SIZE, REFILL_MIN, POSTING_LIFE, EXPEDITION_CHANCE, TIER_RENOWN, REPORT_ARCHIVE,
+} from './config.js';
+import { QUEST_TEMPLATES, TIER_DURATIONS, EXPEDITION_DURATIONS, PLACES } from '../data/quests.js';
 import { ENCOUNTERS } from '../data/encounters.js';
-import { MONSTERS } from '../data/monsters.js';
+import { SUPPLIES } from '../data/supplies.js';
 import { SKILLS } from '../data/skills.js';
 import { resolveQuest } from './resolve.js';
-import { isAvailable, gainXp, addHistory, fullName } from './adventurers.js';
+import { buildEncounter, encounterTags } from './encounters.js';
+import { planDispatches } from './dispatch.js';
+import { partyBonuses, addBond, hasFriend } from './bonds.js';
+import { progressAfterQuest, progressBond, settleGoals } from './goals.js';
+import { isAvailable, gainXp, addHistory, fullName, changeLoyalty } from './adventurers.js';
 import { fill, checkLabel } from './reports.js';
 import { nextId, addLog } from './state.js';
-
-// ---- Board timing (local time, every BOARD_HOURS hours) ----
-
-export function boardKey(now) {
-  const d = new Date(now);
-  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}-${Math.floor(d.getHours() / BOARD_HOURS)}`;
-}
-
-export function nextBoardAt(now) {
-  const d = new Date(now);
-  const block = Math.floor(d.getHours() / BOARD_HOURS) + 1;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), block * BOARD_HOURS).getTime();
-}
 
 export function unlockedTiers(state) {
   return [1, 2, 3].filter((t) => state.renown >= TIER_RENOWN[t - 1]);
@@ -29,45 +22,47 @@ export function unlockedTiers(state) {
 
 // ---- Generation ----
 
-function scaleMonster(base, tier, partySize) {
-  const t = tier - 1;
-  return {
-    name: base.name,
-    ac: base.ac + Math.floor(t / 2),
-    hp: Math.round(base.hp * (1 + 0.6 * t) * (0.5 + 0.25 * partySize)),
-    atk: base.atk + t,
-    dmg: t ? `${base.dmg}+${2 * t}`.replace(/\+(\d+)\+(\d+)$/, (m, a, b) => `+${Number(a) + Number(b)}`) : base.dmg,
-    attacks: base.attacks,
-    tags: base.tags,
-  };
+function rollConditions(rng, tier, encounters, duration) {
+  const tags = new Set(encounters.flatMap(encounterTags));
+  const out = duration >= 180 ? ['long'] : [];
+  const want = tier === 1 ? (rng.chance(0.45) ? 1 : 0) : tier === 2 ? 1 : rng.int(1, 2);
+  let pool = ['night', 'rain', 'cold'];
+  if (tags.has('undead')) pool.push('cursed', 'cursed');
+  if (tags.has('spider')) pool.push('venom', 'venom');
+  if (tags.has('beast') || tags.has('magic')) pool.push('fearsFire');
+  let added = 0;
+  while (added < want && pool.length) {
+    const c = rng.pick(pool);
+    pool = pool.filter((x) => x !== c);
+    out.push(c);
+    added += 1;
+  }
+  return out;
 }
 
-export function generateQuest(rng, tier, id, avoid = []) {
-  const fits = QUEST_TEMPLATES.filter((q) => q.tiers.includes(tier));
+export function generateQuest(rng, tier, id, { avoid = [], expedition = false, now = 0 } = {}) {
+  const fits = QUEST_TEMPLATES.filter((q) => q.tiers.includes(tier) && !!q.expedition === expedition);
   const fresh = fits.filter((q) => !avoid.includes(q.id));
   const tpl = rng.pick(fresh.length ? fresh : fits);
   const vars = { town: rng.pick(PLACES.town), farm: rng.pick(PLACES.farm) };
-  const duration = rng.pick(TIER_DURATIONS[tier]);
   const [pMin, pMax] = tpl.party;
-  const partyMax = pMax;
   const count = rng.int(tpl.count[0], tpl.count[1]);
   const ids = rng.shuffle(tpl.pool).slice(0, count);
   const finale = Array.isArray(tpl.finale) ? rng.pick(tpl.finale) : tpl.finale;
-  if (finale) ids.push(finale);
+  const scale = Math.max(2, Math.round((pMin + pMax) / 2));
+  const encounters = ids.map((defId) => buildEncounter(defId, tier, scale, rng));
+  if (finale) encounters.push({ ...buildEncounter(finale, tier, scale, rng), finale: true });
 
-  const encounters = ids.map((defId) => {
-    const def = ENCOUNTERS[defId];
-    const enc = { def: defId };
-    if (def.kind === 'combat') {
-      // Scaled for the largest allowed party; smaller parties face the same foe.
-      enc.monster = scaleMonster(MONSTERS[def.monster], tier, Math.max(2, Math.round((pMin + partyMax) / 2)));
-    } else {
-      enc.dc = 9 + tier * 2 + rng.int(-1, 1);
-    }
-    return enc;
-  });
-
+  // Longer chains of encounters take longer.
+  const durations = expedition ? EXPEDITION_DURATIONS : TIER_DURATIONS[tier];
+  const span = tpl.count[1] - tpl.count[0];
+  const pos = span ? (count - tpl.count[0]) / span : 0.5;
+  const idx = Math.max(0, Math.min(durations.length - 1, Math.round(pos * (durations.length - 1)) + rng.int(-1, 1)));
+  const duration = durations[idx];
+  const n = encounters.length;
   const wiggle = 0.9 + rng.next() * 0.2;
+  const rich = expedition ? 1.5 : 1;
+
   return {
     id,
     seed: rng.int(0, 2147483647),
@@ -75,11 +70,15 @@ export function generateQuest(rng, tier, id, avoid = []) {
     title: fill(tpl.title, vars),
     blurb: fill(tpl.blurb, vars),
     tier,
+    expedition,
     duration,             // game-minutes
     party: [pMin, pMax],
     encounters,
-    gold: Math.round((15 + 25 * tier) * (1 + duration / 180) * wiggle),
-    xp: Math.round(20 * tier * (1 + duration / 360)),
+    conditions: rollConditions(rng, tier, encounters, duration),
+    gold: Math.round((8 + 10 * tier) * n * (1 + duration / 240) * rich * wiggle),
+    xp: Math.round(10 * tier * n * (1 + duration / 360) * rich),
+    postedAt: now,
+    expiresAt: now + rng.int(POSTING_LIFE[0], POSTING_LIFE[1]) * MIN,
   };
 }
 
@@ -95,33 +94,73 @@ export function questChecks(quest) {
         kind: def.kind,
         skill: def.skill || null,
         ability: def.ability || (def.skill ? SKILLS[def.skill] : null),
+        rawAbility: def.ability || null,
         dc: enc.dc || null,
-        tags: def.kind === 'combat' ? enc.monster.tags : def.tags,
+        tags: encounterTags(enc),
       });
     }
   }
   return [...seen.values()];
 }
 
-export function refreshBoard(state, now) {
-  const key = boardKey(now);
-  if (state.board.epoch === key) return false;
-  const rng = new Rng(seedFrom(state.seed, 'board', key));
-  const tiers = unlockedTiers(state);
-  const quests = [];
-  for (let i = 0; i < BOARD_SIZE; i++) {
-    // Always at least two easy postings so a new or battered company has options.
-    const tier = i < 2 ? 1 : rng.pick(tiers);
-    quests.push(generateQuest(rng.fork(`q${i}`), tier, `q-${key}-${i}`, quests.map((q) => q.template)));
+// Supplies worth packing for this quest.
+export function recommendedSupplies(quest) {
+  const rec = new Set();
+  for (const c of quest.conditions || []) {
+    if (c === 'night' || c === 'fearsFire') rec.add('torches');
+    if (c === 'rain' || c === 'cold') rec.add('cloaks');
+    if (c === 'cursed') rec.add('holyWater');
+    if (c === 'venom') rec.add('antivenom');
+    if (c === 'long') rec.add('rations');
   }
-  quests.sort((a, b) => a.tier - b.tier || a.duration - b.duration);
-  state.board = { epoch: key, quests };
-  return true;
+  if (quest.encounters.some((e) => ['heights', 'water'].some((t) => encounterTags(e).includes(t)))) rec.add('rope');
+  return rec;
+}
+
+// ---- The board: postings expire and are replaced one at a time ----
+
+function spawnPosting(state, now) {
+  const b = state.board;
+  const n = b.counter++;
+  const rng = new Rng(seedFrom(state.seed, 'post', n));
+  const tiers = unlockedTiers(state);
+  const easy = b.quests.filter((q) => q.tier === 1 && !q.expedition).length;
+  const expedition = n >= 3 && !b.quests.some((q) => q.expedition) && rng.chance(EXPEDITION_CHANCE);
+  const tier = expedition ? rng.pick(tiers) : easy < 2 ? 1 : rng.pick(tiers);
+  b.quests.push(generateQuest(rng, tier, `q${n}`, { avoid: b.quests.map((q) => q.template), expedition, now }));
+  b.quests.sort((x, y) => Number(x.expedition) - Number(y.expedition) || x.tier - y.tier || x.duration - y.duration);
+}
+
+export function refreshBoard(state, now) {
+  const b = state.board;
+  let changed = false;
+  const before = b.quests.length;
+  b.quests = b.quests.filter((q) => q.expiresAt > now);
+  if (b.quests.length !== before) changed = true;
+  const due = b.refills.filter((at) => at <= now);
+  if (due.length) {
+    b.refills = b.refills.filter((at) => at > now);
+    for (let k = 0; k < due.length; k++) spawnPosting(state, now);
+    changed = true;
+  }
+  if (b.counter === 0) {
+    for (let k = 0; k < BOARD_SIZE; k++) spawnPosting(state, now);
+    changed = true;
+  }
+  while (b.quests.length + b.refills.length < BOARD_SIZE) {
+    b.refills.push(now + REFILL_MIN * MIN);
+    changed = true;
+  }
+  return changed;
+}
+
+export function nextPostingAt(state) {
+  return state.board.refills.length ? Math.min(...state.board.refills) : null;
 }
 
 // ---- Sending and collecting ----
 
-export function sendParty(state, questId, advIds, now) {
+export function sendParty(state, questId, advIds, packed, now) {
   const quest = state.board.quests.find((q) => q.id === questId);
   if (!quest) return { ok: false, reason: 'That posting is gone' };
   const party = advIds.map((id) => state.roster.find((a) => a.id === id)).filter(Boolean);
@@ -129,18 +168,39 @@ export function sendParty(state, questId, advIds, now) {
     return { ok: false, reason: `Needs ${quest.party[0]} to ${quest.party[1]} adventurers` };
   }
   if (!party.every(isAvailable)) return { ok: false, reason: 'Someone in that party is not ready' };
+  const pack = {};
+  for (const [k, n] of Object.entries(packed || {})) {
+    if (!n || !SUPPLIES[k]) continue;
+    if ((state.supplies[k] || 0) < n) return { ok: false, reason: `Not enough ${SUPPLIES[k].name.toLowerCase()}` };
+    pack[k] = n;
+  }
+  for (const [k, n] of Object.entries(pack)) state.supplies[k] -= n;
 
-  const result = resolveQuest(quest, party, seedFrom(quest.seed, now));
+  const seed = seedFrom(quest.seed, now);
+  const snapshot = party.map((a) => JSON.parse(JSON.stringify(a)));
+  const { bonus, notes } = partyBonuses(state, party);
+  const endAt = now + quest.duration * MIN;
   const pending = {
     id: nextId(state, 'p'),
     quest,
     party: party.map((a) => a.id),
+    snapshot,
+    seed,
+    packed: pack,
+    bonus,
+    bonusNotes: notes,
+    dispatches: planDispatches(quest, snapshot, seed, now, endAt),
     startAt: now,
-    endAt: now + quest.duration * MIN,
-    result,
+    endAt,
   };
-  for (const a of party) { a.status = 'questing'; a.questId = pending.id; a.restAt = null; }
+  for (const a of party) {
+    a.status = 'questing';
+    a.questId = pending.id;
+    a.restAt = null;
+    a.buffs = (a.buffs || []).map((b) => ({ ...b, quests: b.quests - 1 })).filter((b) => b.quests > 0);
+  }
   state.board.quests = state.board.quests.filter((q) => q.id !== questId);
+  state.board.refills.push(now + REFILL_MIN * MIN);
   state.pending.push(pending);
   state.stats.questsSent += 1;
   addLog(state, `${party.map((a) => a.name.split(' ')[0]).join(', ')} set out: ${quest.title}.`, now);
@@ -149,36 +209,63 @@ export function sendParty(state, questId, advIds, now) {
 
 export const isReturned = (p, now) => now >= p.endAt;
 
+export function resultFor(p) {
+  if (p.result) return p.result; // saves from before version 2
+  return resolveQuest(p.quest, p.snapshot, p.seed, {
+    packed: p.packed, bonus: p.bonus, bonusNotes: p.bonusNotes, dispatches: p.dispatches,
+  });
+}
+
 // Applies a finished quest's result and archives the report. Returns the report record.
 export function collectQuest(state, pendingId, now) {
   const p = state.pending.find((x) => x.id === pendingId);
   if (!p || !isReturned(p, now)) return null;
-  const r = p.result;
+  const r = resultFor(p);
   const levelUps = [];
+  const events = [];
   const partyInfo = [];
+  const advs = p.party.map((id) => state.roster.find((x) => x.id === id)).filter(Boolean);
 
-  for (const id of p.party) {
-    const a = state.roster.find((x) => x.id === id);
-    if (!a) continue;
-    const fell = r.downed.includes(id);
+  for (const a of advs) {
+    const id = a.id;
+    const fell = (r.downed || []).includes(id);
     a.hp = Math.max(1, Math.min(a.maxHp, r.hp[id] ?? a.hp));
     a.status = 'idle';
     a.questId = null;
-    a.restAt = p.endAt; // starts recovering from the moment they got home
+    a.restAt = p.endAt;
     a.stats.quests += 1;
     if (r.outcome === 'triumph') a.stats.triumphs += 1;
-    const nat = r.nats[id] || { n20: 0, n1: 0 };
+    const nat = (r.nats || {})[id] || { n20: 0, n1: 0 };
     a.stats.nat20 += nat.n20;
     a.stats.nat1 += nat.n1;
-    for (const h of r.history.filter((x) => x.id === id)) addHistory(a, h.text, p.endAt);
-    const ups = gainXp(a, r.xp);
-    for (const u of ups) {
+    if (r.loyalty && r.loyalty[id]) changeLoyalty(a, r.loyalty[id]);
+    for (const h of (r.history || []).filter((x) => x.id === id)) addHistory(a, h.text, p.endAt);
+    for (const u of gainXp(a, r.xp)) {
       levelUps.push({ id, name: fullName(a), level: u.level, hpGain: u.hpGain });
       addHistory(a, `Reached level ${u.level}.`, p.endAt);
     }
+    if (r.defeated) progressAfterQuest(a, r, p.quest, (r.goalBoost || {})[id] || 0);
     partyInfo.push({ id, name: fullName(a), cls: a.cls, fell });
   }
 
+  // Bonds: questing together builds them; saving a life builds them faster.
+  for (let i = 0; i < advs.length; i++) {
+    for (let j = i + 1; j < advs.length; j++) {
+      const [x, y] = [advs[i], advs[j]];
+      const saves = (r.saves || []).filter(([s, t]) => (s === x.id && t === y.id) || (s === y.id && t === x.id)).length;
+      const delta = 1 + (r.outcome === 'triumph' ? 1 : 0) + saves * 2;
+      const msg = addBond(state, x.id, y.id, delta, [x.name.split(' ')[0], y.name.split(' ')[0]]);
+      if (msg) { events.push(msg); addLog(state, msg, now); }
+    }
+  }
+  for (const a of advs) progressBond(a, hasFriend(state, a.id));
+  for (const g of settleGoals(advs, p.endAt)) {
+    const msg = `${g.name} fulfilled a personal goal (${g.reward}, loyalty up).`;
+    events.push(msg);
+    addLog(state, msg, now);
+  }
+
+  if (r.potionsLeft) state.supplies.potion = (state.supplies.potion || 0) + r.potionsLeft;
   state.gold += r.gold;
   state.renown += r.renown;
   state.stats.questsDone += 1;
@@ -194,6 +281,7 @@ export function collectQuest(state, pendingId, now) {
     party: partyInfo,
     result: r,
     levelUps,
+    events,
   };
   state.reports.unshift(record);
   if (state.reports.length > REPORT_ARCHIVE) state.reports.length = REPORT_ARCHIVE;

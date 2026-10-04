@@ -4,8 +4,11 @@ import { ANCESTRIES, ANCESTRY_IDS } from '../data/ancestries.js';
 import { NAMES, EPITHETS } from '../data/names.js';
 import { BACKGROUNDS } from '../data/backgrounds.js';
 import { QUIRKS, QUIRK_IDS } from '../data/quirks.js';
+import { TALENTS } from '../data/talents.js';
 import { ABILITIES, SKILLS } from '../data/skills.js';
-import { MIN, REST_FRACTION } from './config.js';
+import { MIN, REST_FRACTION, REST_MIN, START_LOYALTY, MAX_LOYALTY } from './config.js';
+import { offerTalents } from './talents.js';
+import { assignGoal } from './goals.js';
 
 export const RARITIES = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 const RARITY_WEIGHTS = [60, 25, 10, 4, 1];
@@ -61,33 +64,53 @@ export function generateAdventurer(rng, opts = {}) {
     xp: 0,
     abilities,
     quirks,
+    talents: [],
+    pendingTalents: [],   // [[talentA, talentB], ...] waiting for the player
     background: rng.pick(BACKGROUNDS).id,
     hp: 0,
     maxHp: 0,
-    status: 'idle',      // idle | questing
+    loyalty: START_LOYALTY,
+    buffs: [],            // { label, mod, quests }
+    goal: null,
+    goalsDone: 0,
+    status: 'idle',       // idle | questing
     questId: null,
-    restAt: null,        // timestamp rest accounting started
+    restAt: null,
     history: [],
     stats: { quests: 0, triumphs: 0, nat20: 0, nat1: 0 },
   };
-  adv.maxHp = Math.max(4, cls.hitDie + mod(abilities.con) + quirkHp(adv));
+  adv.maxHp = Math.max(4, cls.hitDie + mod(abilities.con) + traitHp(adv));
   adv.hp = adv.maxHp;
+  assignGoal(adv);
   return adv;
 }
 
-export function quirkHp(adv) {
-  return adv.quirks.reduce((s, q) => s + (QUIRKS[q].hp || 0), 0);
+// Quirks and talents share effect fields: mods, adv, dis, hp, ac, flag, special.
+export function traits(adv) {
+  return [
+    ...adv.quirks.map((q) => QUIRKS[q]),
+    ...(adv.talents || []).map((t) => TALENTS[t]),
+  ];
+}
+
+export function traitHp(adv) {
+  return traits(adv).reduce((s, t) => s + (t.hp || 0), 0);
+}
+
+export function hasFlag(adv, flag) {
+  return traits(adv).some((t) => t.flag === flag);
 }
 
 export function hasSpecial(adv, special) {
   if (special === 'lucky' && ANCESTRIES[adv.ancestry].trait === 'lucky') return true;
-  return adv.quirks.some((q) => QUIRKS[q].special === special);
+  return traits(adv).some((t) => t.special === special);
 }
 
 export function armorClass(adv) {
   const cls = CLASSES[adv.cls];
   let ac = cls.ac + Math.min(mod(adv.abilities.dex), cls.dexCap);
   if (cls.conAc) ac += mod(adv.abilities.con);
+  for (const t of traits(adv)) ac += t.ac || 0;
   return ac;
 }
 
@@ -102,11 +125,10 @@ export function checkBonus(adv, skill, ability) {
   const ab = ability || SKILLS[skill];
   let bonus = mod(adv.abilities[ab]);
   if (isProficient(adv, skill)) bonus += profBonus(adv.level);
-  for (const q of adv.quirks) {
-    const m = QUIRKS[q].mods;
-    if (!m) continue;
-    if (skill && m[skill]) bonus += m[skill];
-    if (m[ab]) bonus += m[ab];
+  for (const t of traits(adv)) {
+    if (!t.mods) continue;
+    if (skill && t.mods[skill]) bonus += t.mods[skill];
+    if (t.mods[ab]) bonus += t.mods[ab];
   }
   return bonus;
 }
@@ -115,27 +137,40 @@ export function attackBonus(adv) {
   return mod(adv.abilities[CLASSES[adv.cls].attack]) + profBonus(adv.level);
 }
 
-// Advantage / disadvantage from quirks and class perks. Returns { mode, reasons }.
-export function rollMode(adv, tags = [], attack = false) {
+export function damageDice(adv) {
+  if (adv.cls === 'wizard' && hasFlag(adv, 'bigSpell')) return '2d10';
+  return CLASSES[adv.cls].damage;
+}
+
+// Sources of advantage and disadvantage from traits and class perks.
+export function rollFactors(adv, tags = [], attack = false) {
   const plus = [];
   const minus = [];
-  for (const q of adv.quirks) {
-    const def = QUIRKS[q];
-    if (def.adv && def.adv.some((t) => tags.includes(t))) plus.push(def.name.toLowerCase());
-    if (def.dis && def.dis.some((t) => tags.includes(t))) minus.push(def.name.toLowerCase());
+  for (const t of traits(adv)) {
+    if (t.adv && t.adv.some((x) => tags.includes(x))) plus.push(t.name.toLowerCase());
+    if (t.dis && t.dis.some((x) => tags.includes(x))) minus.push(t.name.toLowerCase());
   }
   const perk = CLASSES[adv.cls].perk;
   if (perk === 'arcane' && tags.includes('magic')) plus.push('arcane insight');
   if (perk === 'hunter' && attack && tags.includes('beast')) plus.push('hunter');
+  return { plus, minus };
+}
+
+export function modeOf(plus, minus) {
   const mode = plus.length && !minus.length ? 'adv' : minus.length && !plus.length ? 'dis' : null;
   return { mode, reasons: mode === 'adv' ? plus : mode === 'dis' ? minus : [] };
+}
+
+export function rollMode(adv, tags = [], attack = false) {
+  const { plus, minus } = rollFactors(adv, tags, attack);
+  return modeOf(plus, minus);
 }
 
 export function xpToNext(adv) {
   return adv.level >= MAX_LEVEL ? null : XP_TABLE[adv.level];
 }
 
-// Adds XP and applies level-ups. Returns [{ level, hpGain }].
+// Adds XP and applies level-ups, each with a talent choice. Returns [{ level, hpGain }].
 export function gainXp(adv, amount) {
   adv.xp += amount;
   const ups = [];
@@ -144,16 +179,24 @@ export function gainXp(adv, amount) {
     const hpGain = Math.max(1, Math.floor(CLASSES[adv.cls].hitDie / 2) + 1 + mod(adv.abilities.con));
     adv.maxHp += hpGain;
     adv.hp += hpGain;
+    adv.pendingTalents = adv.pendingTalents || [];
+    const offer = offerTalents(adv);
+    if (offer.length) adv.pendingTalents.push(offer);
     ups.push({ level: adv.level, hpGain });
   }
   return ups;
 }
 
+export function changeLoyalty(adv, n) {
+  adv.loyalty = Math.max(0, Math.min(MAX_LOYALTY, (adv.loyalty ?? START_LOYALTY) + n));
+}
+
+export const isDevoted = (adv) => (adv.loyalty || 0) >= MAX_LOYALTY;
 export const isRested = (adv) => adv.hp >= Math.ceil(adv.maxHp / 2);
 export const isAvailable = (adv) => adv.status === 'idle' && isRested(adv);
 
 function msPerHp(adv) {
-  return (30 * MIN) / Math.max(1, adv.maxHp * REST_FRACTION);
+  return (REST_MIN * MIN) / Math.max(1, adv.maxHp * REST_FRACTION);
 }
 
 // Idle adventurers recover HP over real time. Returns true if HP changed.
@@ -177,7 +220,7 @@ export function restedAt(adv, now) {
 
 export function addHistory(adv, text, at) {
   adv.history.unshift({ at, text });
-  if (adv.history.length > 12) adv.history.length = 12;
+  if (adv.history.length > 14) adv.history.length = 14;
 }
 
 export function fullName(adv) {
@@ -190,8 +233,4 @@ export function firstName(adv) {
 
 export function describe(adv) {
   return `Lv ${adv.level} ${ANCESTRIES[adv.ancestry].name.toLowerCase()} ${CLASSES[adv.cls].name.toLowerCase()}`;
-}
-
-export function possessive(adv) {
-  return adv.pronoun === 'she' ? 'her' : adv.pronoun === 'he' ? 'his' : 'their';
 }
