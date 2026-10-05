@@ -30,6 +30,7 @@ import { openReport } from './ui/report.js';
 import { openSettings } from './ui/settings.js';
 import { adventurerDetail } from './ui/card.js';
 import { formatRoll } from './reports.js';
+import { newFinds } from './showcase.js';
 
 const TABS = [
   { id: 'tavern', label: 'Tavern', render: renderTavern },
@@ -229,7 +230,7 @@ function renderChrome() {
   const al = alerts();
   document.getElementById('purse').innerHTML =
     `<span class="gold" title="Gold">${icon('coin')}${state.gold}</span><span class="renown" title="Renown">${icon('renown')}${state.renown}</span>`;
-  const dots = { tavern: al.ready + al.messages + al.stories, roster: al.talents };
+  const dots = { tavern: al.ready + al.messages + al.stories, roster: al.talents, rooms: tab === 'rooms' ? 0 : newFinds(state) };
   const nav = document.getElementById('tabs');
   nav.replaceChildren(...TABS.map((t) => {
     const b = document.createElement('button');

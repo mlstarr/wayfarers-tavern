@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-04 (rarity, recruit odds, heroic talents)
+Last updated: 2026-10-04 (showcase)
 
 ## Built
 **M1 core loop**
@@ -60,6 +60,11 @@ Last updated: 2026-10-04 (rarity, recruit odds, heroic talents)
 - **Rarity keeps mattering:** ability growth at levels 4 and 8 (1, 1, 2, 2, 3 points by rarity, into the class's key abilities); epic and legendary heroes see four talent options instead of three; rare talents and heroic talents are offered more often to rarer heroes. Measured at level 6 on deadly jobs: common 72%, rare 78%, legendary 84% success or better.
 - **High levels take real work:** XP table is now 100 / 250 / 450 / 700 / 1050 / 1550 / 2250 / 3200 / 4500. Heroes above level 4 get 35% XP from easy jobs, above 7 from risky ones (`xpFactor` in quests.js; expeditions count one tier harder). The report says when this happened.
 - **Heroic talents** (12, `src: 'heroic'`): need level 8 to 10 and a hard record, such as 5 deadly wins, 10 undead defeated or 8 final battles. New deed counter: `deadly` (won tier 3 jobs). New effect field: `swings` (extra attacks).
+
+**Showcase** (`js/showcase.js`, `js/ui/showcase.js`)
+- The Hall opens on a Showcase: prestige, collection percent (ring) and active bonus count; "Every party carries" lists every bonus in effect (rooms, trophy sets, bestiary knowledge, prestige pull); "Within reach" shows the closest next bonuses with progress (sets, bestiary levels, legend trails, next rank). Below it, shelves for the trophy wall (art per trophy, `art` in data/trophies.js), legends, best gear and bestiary bars, each opening its segment.
+- Home screen has a "Your collection" card with the next milestone and a count of new finds; the Hall tab shows a dot for new trophies, gear, lore or legends since it was last opened (`state.hallSeen`, `flags.gearFound`).
+- Quest cards show trophies the job could bring home that are not on the wall yet (`trophyChances`).
 
 ## How to test
 - `node tools/smoke.mjs`: plays 80 quests through every system, checks save round-trip, v1 migration, determinism, validates every talent, checks that 300 level-10 heroes all have different builds, and prints the balance table (rows marked +T level heroes with real paths and talents).

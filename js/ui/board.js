@@ -1,4 +1,5 @@
 // The quest board and the party picker (party, supplies, bonds).
+import { trophyChances } from '../showcase.js';
 import { h, section, countdown, fmtSpan, openSheet, toast } from './dom.js';
 import { icon } from './icons.js';
 import { adventurerCard, statusOf } from './card.js';
@@ -36,7 +37,7 @@ export function conditionChips(quest, packed = null) {
   });
 }
 
-export function questCard(quest, { onChoose, hero } = {}) {
+export function questCard(quest, { onChoose, hero, drops = [] } = {}) {
   return h('article', { class: `quest-card${quest.expedition ? ' expedition' : ''}${quest.personal ? ' personal' : ''}` },
     quest.personal ? h('div', { class: 'personal-tag' }, `Personal quest${hero ? ` for ${hero.name}` : ''}`) : null,
     h('div', { class: 'quest-head' }, h('h3', null, quest.title), tierBadge(quest)),
@@ -49,6 +50,7 @@ export function questCard(quest, { onChoose, hero } = {}) {
     h('div', { class: 'chips' },
       questChecks(quest).map((c) => h('span', { class: `chip check ${c.kind}` }, c.label)),
       conditionChips(quest),
+      drops.map((d) => h('span', { class: `chip trophy-chance r-${d.rarity}`, title: d.triumph ? 'Only on a triumph' : 'Not on your wall yet' }, `Trophy: ${d.name}${d.triumph ? ' (triumph)' : ''}`)),
       quest.contract ? h('span', { class: 'chip contract', title: 'Paid up front, returned if the job succeeds' }, `Contract: ${quest.contract.deposit} gold deposit`) : null),
     h('p', { class: 'risk small' }, `Failure costs ${RENOWN_LOSS.failure * quest.tier} renown, disaster ${RENOWN_LOSS.disaster * quest.tier}.`),
     h('div', { class: 'quest-foot' },
@@ -75,7 +77,7 @@ export function renderBoard(ctx) {
       h('p', { class: 'muted' }, 'Every posting has been taken. New notices go up through the day.')));
   }
   root.append(h('div', { class: 'list two' }, state.board.quests.map((q) =>
-    questCard(q, { onChoose: () => openPartyPicker(ctx, q), hero: q.personal ? state.roster.find((a) => a.id === q.personal) : null }))));
+    questCard(q, { onChoose: () => openPartyPicker(ctx, q), hero: q.personal ? state.roster.find((a) => a.id === q.personal) : null, drops: trophyChances(state, q) }))));
   return root;
 }
 

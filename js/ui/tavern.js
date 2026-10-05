@@ -1,4 +1,5 @@
 // Home screen: messengers, common-room scenes, returns, parties on the road.
+import { collectionCard } from './showcase.js';
 import { h, section, countdown, fmtAgo, fmtSpan } from './dom.js';
 import { icon } from './icons.js';
 import { miniShield } from './card.js';
@@ -58,6 +59,7 @@ export function renderTavern(ctx) {
   const stories = readyStories(state);
   const root = h('div', { class: 'screen tavern' });
   root.append(h('div', { class: 'home-head' }, rankPanel(state, { compact: true }), upkeepLine(state, now)));
+  root.append(collectionCard(ctx));
 
   if (messages.length) {
     root.append(section('Word from the road', null,

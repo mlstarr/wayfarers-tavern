@@ -51,3 +51,12 @@ export const TROPHY_SETS = {
 
 // Duplicate trophies are sold to collectors.
 export const DUPLICATE_GOLD = { common: 8, rare: 20, epic: 50, legendary: 100 };
+
+// Art for each trophy (icon names in js/ui/icons.js).
+const ART = {
+  wolfPelt: 'pelt', boarTusks: 'tusk', spiderSilk: 'web', alphaFang: 'fang', boneDice: 'dice', ghostLantern: 'lantern',
+  barrowCrown: 'crown', banditBanner: 'banner', tollLedger: 'scroll', caravanBell: 'bell', saltCrown: 'crown',
+  sigilStone: 'stone', horrorHeart: 'leaf', wizardHat: 'hat', singingStone: 'stone', moonpetal: 'flower',
+  eagleFeather: 'feather', riverPearl: 'pearl', deepwoodMap: 'map', nightCandle: 'candle',
+};
+for (const [id, art] of Object.entries(ART)) if (TROPHIES[id]) TROPHIES[id].art = art;

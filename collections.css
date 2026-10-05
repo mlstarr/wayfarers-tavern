@@ -121,3 +121,66 @@
 .beast-level { color: var(--text2); font-weight: 700; }
 .beast-level.on { color: #a9d39f; }
 .lore { margin: 4px 0; padding-left: 18px; font-family: Georgia, serif; font-size: 14.5px; line-height: 1.45; }
+
+/* ---- Hall showcase ---- */
+.showcase { display: grid; gap: 14px; }
+.show-banner { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 16px 10px; border-radius: var(--r);
+  background: radial-gradient(120% 140% at 50% 0%, #4a3220 0%, #24180f 70%); border: 1px solid #8a6230; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.banner-stat { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; color: var(--text2); }
+.banner-stat > b { font-family: var(--display); font-size: 30px; line-height: 1; color: var(--goldc); }
+.banner-icon .icon { width: 26px; height: 26px; color: var(--goldc); }
+.ring { --p: 0; width: 64px; height: 64px; border-radius: 50%; display: grid; place-items: center;
+  background: conic-gradient(var(--goldc) calc(var(--p) * 1%), #3b2a1c 0); }
+.ring b { width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; background: #24180f; font-family: var(--display); color: var(--text); font-size: 15px; }
+.bonus-board { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 14px; }
+.bonus-board h3 { margin: 0 0 10px; font-family: var(--display); color: var(--goldc); font-size: 17px; }
+.bonus-list, .near-list, .best-gear, .beast-bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.bonus { display: grid; grid-template-columns: 32px 1fr auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: #2a1e14; }
+.bonus > div { display: flex; flex-direction: column; }
+.bonus-icon .icon, .near-icon .icon { width: 22px; height: 22px; color: var(--goldc); }
+.bonus-src { color: var(--text2); white-space: nowrap; }
+.bonus.src-set { box-shadow: inset 3px 0 0 var(--goldc); }
+.bonus.src-bestiary { box-shadow: inset 3px 0 0 var(--bad); }
+.bonus.src-room { box-shadow: inset 3px 0 0 var(--ember); }
+.bonus.src-prestige { box-shadow: inset 3px 0 0 var(--epic); }
+.near { display: grid; grid-template-columns: 28px 1fr; gap: 10px; }
+.near-top { display: flex; justify-content: space-between; gap: 8px; }
+.near .goalbar { margin: 4px 0; }
+.shelf { background: var(--bg2); border: 1px solid var(--line); border-radius: var(--r); padding: 4px 14px 14px; }
+.shelf-head { appearance: none; background: none; border: 0; color: var(--text); width: 100%; display: flex; align-items: baseline; gap: 10px; padding: 10px 0; cursor: pointer; text-align: left; }
+.shelf-head b { font-family: var(--display); font-size: 17px; color: var(--goldc); }
+.shelf-open { margin-left: auto; color: var(--ember2); font-weight: 700; font-size: 14px; }
+.wall { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 12px; border-radius: 10px;
+  background: repeating-linear-gradient(90deg, #3a2716 0 22px, #34230f 22px 24px); box-shadow: inset 0 0 18px rgba(0,0,0,.5); }
+.plaque { aspect-ratio: 1; border-radius: 50% 50% 10px 10px; display: grid; place-items: center; background: #24180f; border: 2px solid #5a4028; }
+.plaque .icon { width: 60%; height: 60%; }
+.plaque.missing { opacity: .35; border-style: dashed; }
+.plaque.missing .icon { color: #6b5a48; }
+.plaque.found { background: radial-gradient(circle at 50% 35%, #fff4d8, var(--parch2)); }
+.plaque.found .icon { color: var(--ink); }
+.plaque.r-common { border-color: var(--common); } .plaque.r-rare { border-color: var(--rare); box-shadow: 0 0 10px rgba(63,120,194,.4); }
+.plaque.r-epic { border-color: var(--epic); box-shadow: 0 0 12px rgba(145,82,196,.5); } .plaque.r-legendary { border-color: var(--legendary); box-shadow: 0 0 14px rgba(224,154,34,.6); }
+.legend-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.legend-chip { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text2); }
+.legend-face { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; background: #2a1e14; border: 2px dashed #5a4028; }
+.legend-face .icon { width: 24px; height: 24px; }
+.legend-chip.unknown .legend-face { opacity: .4; }
+.legend-chip.rumored .legend-face, .legend-chip.quest .legend-face { border: 2px solid var(--goldc); background: color-mix(in srgb, var(--cc) 40%, #2a1e14); color: #fff; }
+.legend-chip.recruited .legend-face { border: 2px solid var(--legendary); background: var(--cc); color: #fff; box-shadow: 0 0 12px rgba(224,154,34,.5); }
+.legend-chip.recruited { color: var(--text); }
+.best-gear li { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #2a1e14; border-left: 3px solid var(--common); text-transform: none; }
+.best-gear li.r-uncommon { border-color: var(--uncommon); } .best-gear li.r-rare { border-color: var(--rare); }
+.best-gear li.r-epic { border-color: var(--epic); } .best-gear li.r-legendary { border-color: var(--legendary); }
+.beast-bars li { display: grid; grid-template-columns: 110px 1fr 76px; gap: 10px; align-items: center; text-transform: capitalize; }
+.beast-bars .muted { text-align: right; }
+.collection-card { appearance: none; width: 100%; text-align: left; cursor: pointer; margin: 0 0 14px; padding: 12px 14px; border-radius: var(--r);
+  background: linear-gradient(135deg, #3d2a17, #261a10); border: 1px solid #8a6230; color: var(--text); display: grid; gap: 6px; }
+.cc-top { display: flex; align-items: center; gap: 8px; }
+.cc-top b { font-family: var(--display); color: var(--goldc); }
+.cc-icon .icon { width: 22px; height: 22px; color: var(--goldc); }
+.cc-new { margin-left: auto; background: var(--ember); color: #fff; border-radius: 999px; padding: 2px 10px; font-size: 13px; font-weight: 700; }
+.cc-stats { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--text2); }
+.cc-next { color: var(--text); }
+.chip.trophy-chance { background: #3a2a14; color: var(--goldc); border: 1px solid #8a6230; }
+.segments { overflow-x: auto; scrollbar-width: none; }
+.trophy .trophy-art .icon { width: 30px; height: 30px; }

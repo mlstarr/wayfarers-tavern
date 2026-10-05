@@ -3,6 +3,8 @@
 import { h, section, openSheet } from './dom.js';
 import { icon } from './icons.js';
 import { renderRooms } from './rooms.js';
+import { renderOverview, trophyArt } from './showcase.js';
+import { markHallSeen } from '../showcase.js';
 import { TROPHIES, TROPHY_SETS, PRESTIGE } from '../../data/trophies.js';
 import { LEGENDS, LEGEND_IDS } from '../../data/legends.js';
 import { MONSTERS } from '../../data/monsters.js';
@@ -16,13 +18,14 @@ import { itemDesc } from '../gear.js';
 import { firstName } from '../adventurers.js';
 
 const SEGMENTS = [
+  { id: 'overview', label: 'Showcase' },
   { id: 'rooms', label: 'Rooms' },
   { id: 'trophies', label: 'Trophies' },
   { id: 'legends', label: 'Legends' },
   { id: 'armory', label: 'Armory' },
   { id: 'bestiary', label: 'Bestiary' },
 ];
-let segment = 'rooms';
+let segment = 'overview';
 
 export function renderHall(ctx) {
   ensureCollections(ctx.state);
@@ -32,11 +35,13 @@ export function renderHall(ctx) {
     'aria-selected': s.id === segment ? 'true' : 'false',
     onclick: () => { segment = s.id; ctx.go('rooms'); },
   }, s.label)));
-  const body = segment === 'rooms' ? renderRooms(ctx)
+  const body = segment === 'overview' ? renderOverview(ctx)
+    : segment === 'rooms' ? renderRooms(ctx)
     : segment === 'trophies' ? renderTrophies(ctx)
       : segment === 'legends' ? renderLegends(ctx)
         : segment === 'armory' ? renderArmory(ctx)
           : renderBestiary(ctx);
+  markHallSeen(ctx.state);
   return h('div', { class: 'screen hall' }, nav, body);
 }
 
@@ -75,7 +80,7 @@ function trophyTile(state, id) {
   const t = TROPHIES[id];
   const got = state.trophies[id];
   return h('div', { class: `trophy ${got ? `found r-${t.rarity}` : 'missing'}`, title: got ? t.desc : t.hint },
-    h('span', { class: 'trophy-art', html: icon(got ? 'renown' : 'skull') }),
+    trophyArt(id, got),
     h('b', null, got ? t.name : '???'),
     h('span', { class: 'small' }, got ? t.desc : `Hint: ${t.hint.toLowerCase()}.`),
     got ? h('span', { class: 'trophy-meta small' }, `${t.rarity} · +${PRESTIGE[t.rarity]} prestige`) : null);

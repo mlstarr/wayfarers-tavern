@@ -182,6 +182,7 @@ export function afterQuest(state, p, result, now) {
   if (item) {
     loot.gear = item;
     loot.gearSold = addToStash(state, item);
+    state.flags.gearFound = (state.flags.gearFound || 0) + 1;
     addLog(state, `Found on the road: ${item.name}.`, now);
   }
 
