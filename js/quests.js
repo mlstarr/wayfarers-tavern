@@ -1,7 +1,7 @@
 // Quest generation, the quest board, sending parties and collecting results.
 import { Rng, seedFrom } from './rng.js';
 import {
-  MIN, BOARD_SIZE, REFILL_MIN, POSTING_LIFE, EXPEDITION_CHANCE, EXPEDITION_MIN_STAGE, REPORT_ARCHIVE,
+  MIN, BOARD_SIZE, BOARD_MIN, REFILL_MIN, POSTING_LIFE, EXPEDITION_CHANCE, EXPEDITION_MIN_STAGE, REPORT_ARCHIVE,
 } from './config.js';
 import { QUEST_TEMPLATES, TIER_DURATIONS, EXPEDITION_DURATIONS, PLACES } from '../data/quests.js';
 import { ENCOUNTERS } from '../data/encounters.js';
@@ -161,9 +161,14 @@ function spawnPosting(state, now) {
 export function refreshBoard(state, now) {
   const b = state.board;
   let changed = false;
-  const before = b.quests.length;
-  b.quests = b.quests.filter((q) => q.expiresAt > now);
-  if (b.quests.length !== before) changed = true;
+  // Postings that expired while nobody was looking are replaced as if someone had been:
+  // each replacement is due one refill delay after its posting came down.
+  const expired = b.quests.filter((q) => q.expiresAt <= now);
+  if (expired.length) {
+    b.quests = b.quests.filter((q) => q.expiresAt > now);
+    for (const q of expired) if (!q.personal && !q.legend) b.refills.push(q.expiresAt + refillDelay(state));
+    changed = true;
+  }
   const due = b.refills.filter((at) => at <= now);
   if (due.length) {
     b.refills = b.refills.filter((at) => at > now);
@@ -174,7 +179,14 @@ export function refreshBoard(state, now) {
     for (let k = 0; k < BOARD_SIZE; k++) spawnPosting(state, now);
     changed = true;
   }
-  while (b.quests.filter((q) => !q.personal && !q.legend).length + b.refills.length < BOARD_SIZE) {
+  // Never leave the board thin: below the minimum, the next postings go up at once.
+  const open = () => b.quests.filter((q) => !q.personal && !q.legend).length;
+  while (open() < BOARD_MIN && b.refills.length) {
+    b.refills.sort((x, y) => x - y).shift();
+    spawnPosting(state, now);
+    changed = true;
+  }
+  while (open() + b.refills.length < BOARD_SIZE) {
     b.refills.push(now + refillDelay(state));
     changed = true;
   }

@@ -179,6 +179,19 @@ console.log(`      quest lengths sent, in minutes: ${firstLengths.slice(0, 24).j
   check(!Object.keys(autoRestock(s4, 0)).length, 'restock can be switched off');
 }
 
+// 1e. Coming back after a long absence finds a full board
+{
+  const t0 = Date.now();
+  const s3 = newGame(3, t0);
+  startingParty(s3, t0);
+  s3.stats.questsSent = 30;
+  refreshBoard(s3, t0);
+  for (const hours of [14, 40]) {
+    refreshBoard(s3, t0 + hours * 3600e3);
+    check(s3.board.quests.length === 6, `full board after ${hours}h away`);
+  }
+}
+
 // 2. Save round trip
 const copy = importSave(exportSave(state));
 check(copy.roster.length === state.roster.length && copy.version === 6, 'save round-trips');

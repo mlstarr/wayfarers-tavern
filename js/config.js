@@ -11,6 +11,7 @@ export const START_GOLD = 60;
 export const ROSTER_CAP = 8;
 
 export const BOARD_SIZE = 6;            // postings on the board at once
+export const BOARD_MIN = 3;             // fewer open postings than this and replacements go up at once
 export const REFILL_MIN = 20;           // game-minutes until a taken or expired posting is replaced
 export const POSTING_LIFE = [240, 480]; // game-minutes a posting stays up
 export const EXPEDITION_CHANCE = 0.3;   // chance a new posting is an expedition (max one on the board)

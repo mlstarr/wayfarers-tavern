@@ -1,6 +1,6 @@
 # Status
 
-Last updated: 2026-10-04 (showcase)
+Last updated: 2026-10-05 (board refills after time away)
 
 ## Built
 **M1 core loop**
@@ -11,7 +11,7 @@ Last updated: 2026-10-04 (showcase)
 
 **Depth update (from playtest feedback: too little to do, no connection to heroes, waits too long)**
 - **Timing:** Easy 2 to 10 min, Risky 12 to 60, Deadly 1 to 4 h, Expeditions 6 to 12 h (1.5x rewards). More encounters means longer. Rest is 10% HP per 10 min.
-- **Rolling board:** 6 postings, each expires after 4 to 8 h; taken or expired postings are replaced 20 min later. At most one expedition up at a time.
+- **Rolling board:** 6 postings, each expires after 4 to 8 h; taken or expired postings are replaced 20 min later. At most one expedition up at a time. Postings that expire while the player is away are replaced as if they had been watching (due 20 min after each expiry), and the board never drops below 3 open postings (BOARD_MIN): below that, the next ones go up at once.
 - **Dispatches** (`data/dispatches.js`, `js/dispatch.js`): quests of 5+ min get a messenger partway through (2 on quests of 3+ h) with a choice; unanswered, the party takes the default. Resolution now runs at return time from the seed fixed at send, applying the choices.
 - **Conditions and supplies** (`data/supplies.js`): quests roll conditions (night, rain, cold, cursed ground, venom, long road, fears fire); supplies counter them. Shop in the Bar tab; packing in the party picker; potions auto-drink and unused ones come home. Picker odds include conditions, bonds and buffs.
 - **Tavern scenes** (`data/scenes.js`, `js/scenes.js`): every 90 min of game time, idle heroes may start a scene with 2 to 3 choices (gold, loyalty, bonds, buffs, XP, d20 checks).
